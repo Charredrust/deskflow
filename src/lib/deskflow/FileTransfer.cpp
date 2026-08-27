@@ -38,7 +38,7 @@ bool Offer::isValid() const
 {
   const QUuid uuid(id);
   return !uuid.isNull() && uuid.toString(QUuid::WithoutBraces).compare(id, Qt::CaseInsensitive) == 0 &&
-         sanitizedFileName(name) == name && !directory && size <= kDefaultMaximumTransferSize;
+         !name.isEmpty() && sanitizedFileName(name) == name && !directory && size <= kDefaultMaximumTransferSize;
 }
 
 QByteArray Offer::toWire() const
