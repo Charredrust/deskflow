@@ -94,6 +94,11 @@ Q_SIGNALS:
   void retryIn(int seconds);
   void peerFingerprint(const QString &fingerprint);
   void missingKeyboardLayouts(const QString &layouts);
+  void fileTransferOffer(const QString &encodedOffer);
+  void fileTransferProgress(const QString &encodedProgress);
+
+public:
+  void sendFileTransferDecision(const QString &id, bool accepted);
 
 private Q_SLOTS:
   void onProcessFinished(int exitCode, QProcess::ExitStatus);

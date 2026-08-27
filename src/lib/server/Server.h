@@ -14,11 +14,14 @@
 #include "deskflow/Clipboard.h"
 #include "deskflow/ClipboardTypes.h"
 #include "deskflow/KeyTypes.h"
+#include "deskflow/FileTransfer.h"
+#include "deskflow/FileTransferStorage.h"
 #include "deskflow/MouseTypes.h"
 #include "server/Config.h"
 
 #include <climits>
 #include <map>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -200,6 +203,14 @@ public:
   void sendConnectedClientsIpc() const;
   size_t getMaximumClipboardSizeBytes() const;
 
+  void fileTransferOffer(BaseClientProxy *source, const std::string &wireOffer);
+  void fileTransferAccept(BaseClientProxy *target, const std::string &id);
+  void fileTransferCancel(BaseClientProxy *client, const std::string &id, const std::string &reason);
+  void fileTransferData(BaseClientProxy *source, const std::string &id, const std::string &data);
+  void fileTransferEnd(BaseClientProxy *source, const std::string &id, const std::string &digest);
+  void fileTransferReady(BaseClientProxy *target, const std::string &id);
+  void localFileTransferDecision(const QString &id, bool accepted);
+
   //@}
 
 private:
@@ -223,6 +234,11 @@ private:
 
   // change the active screen
   void switchScreen(BaseClientProxy *, int32_t x, int32_t y, bool forScreenSaver);
+  void offerPrimaryFileToActive();
+  void deliverFileOffer();
+  void sendNextPrimaryFileChunk();
+  void failFileTransfer(const QString &reason);
+  void reportFileTransferProgress(deskflow::filetransfer::Status status, const QString &detail = {});
 
   // jump to screen
   void jumpToScreen(BaseClientProxy *);
@@ -418,6 +434,16 @@ private:
 
   // clipboard cache
   ClipboardInfo m_clipboards[kClipboardEnd];
+
+  struct FileTransferSession
+  {
+    deskflow::filetransfer::Offer offer;
+    BaseClientProxy *source = nullptr;
+    BaseClientProxy *target = nullptr;
+    std::unique_ptr<deskflow::filetransfer::OutgoingFile> outgoing;
+    std::unique_ptr<deskflow::filetransfer::IncomingFile> incoming;
+  };
+  std::optional<FileTransferSession> m_fileTransfer;
 
   // used in hello message sent to the client
   NetworkProtocol m_protocol = NetworkProtocol::Barrier;

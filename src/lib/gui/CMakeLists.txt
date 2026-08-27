@@ -98,6 +98,8 @@ add_library(${target} STATIC
   validators/IpAddressValidator.h
   widgets/FingerprintPreview.cpp
   widgets/FingerprintPreview.h
+  widgets/FileTransferPopup.cpp
+  widgets/FileTransferPopup.h
   widgets/KeySequenceWidget.cpp
   widgets/KeySequenceWidget.h
   widgets/LogDock.cpp
@@ -123,5 +125,6 @@ target_link_libraries(${target}
     common
     platform
     net
+    app
     Qt6::Widgets
 )

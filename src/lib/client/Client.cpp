@@ -29,6 +29,7 @@
 #include "net/TCPSocket.h"
 
 #include <QMetaEnum>
+#include <QUuid>
 
 #include <cstdlib>
 #include <cstring>
@@ -70,12 +71,14 @@ Client::Client(
   // register suspend/resume event handlers
   m_events->addHandler(EventTypes::ScreenSuspend, getEventTarget(), [this](const auto &) { handleSuspend(); });
   m_events->addHandler(EventTypes::ScreenResume, getEventTarget(), [this](const auto &) { handleResume(); });
+  m_events->addHandler(EventTypes::FileTransferSendNext, this, [this](const auto &) { sendNextFileChunk(); });
 }
 
 Client::~Client()
 {
   m_events->removeHandler(EventTypes::ScreenSuspend, getEventTarget());
   m_events->removeHandler(EventTypes::ScreenResume, getEventTarget());
+  m_events->removeHandler(EventTypes::FileTransferSendNext, this);
 
   cleanupTimer();
   cleanupScreen();
@@ -244,6 +247,15 @@ bool Client::leave()
       if (m_ownClipboard[id]) {
         sendClipboard(id);
       }
+    }
+  }
+
+  if (m_enableClipboard && m_serverSupportsFileTransfer && m_server != nullptr) {
+    m_localFileOffer = m_screen->getFileClipboard();
+    if (m_localFileOffer) {
+      m_localFileOffer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+      m_localFileOffer->sourceName = QString::fromStdString(m_name);
+      m_server->onFileTransferOffer(m_localFileOffer->toWire().toStdString());
     }
   }
 
@@ -630,6 +642,14 @@ void Client::handleClipboardGrabbed(const Event &event)
 
   const auto *info = static_cast<const IScreen::ClipboardInfo *>(event.getData());
 
+  if (info->m_id == kClipboardClipboard && m_serverSupportsFileTransfer) {
+    m_localFileOffer = m_screen->getFileClipboard();
+    if (m_localFileOffer) {
+      m_localFileOffer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+      m_localFileOffer->sourceName = QString::fromStdString(m_name);
+    }
+  }
+
   // grab ownership
   m_server->onGrabClipboard(info->m_id);
 
@@ -683,6 +703,8 @@ void Client::handleHello()
     );
   }
 
+  m_serverSupportsFileTransfer = helloBackMinor >= 9 && m_useSecureNetwork;
+
   LOG_DEBUG("saying hello back with version %s %d.%d", protocolName.c_str(), kProtocolMajorVersion, helloBackMinor);
 
   // dynamically build write format for hello back since `ProtocolUtil::writef`
@@ -700,6 +722,196 @@ void Client::handleHello()
   if (m_stream->isReady()) {
     m_events->addEvent(Event(EventTypes::StreamInputReady, m_stream->getEventTarget()));
   }
+}
+
+void Client::fileTransferOffer(const std::string &wireOffer)
+{
+  auto offer = deskflow::filetransfer::Offer::fromWire(QByteArray::fromStdString(wireOffer));
+  if (!offer) {
+    LOG_WARN("received an invalid file transfer offer");
+    return;
+  }
+  if (!m_useSecureNetwork) {
+    if (m_server)
+      m_server->onFileTransferCancel(offer->id.toStdString(), "file clipboard transfer requires TLS");
+    return;
+  }
+
+  if (m_incomingFile)
+    m_incomingFile->cancel();
+  m_incomingFile.reset();
+  m_incomingFileOffer = std::move(offer);
+  ipcSendToClient("fileTransferOffer", QString::fromUtf8(m_incomingFileOffer->toWire()));
+}
+
+void Client::localFileTransferDecision(const QString &id, bool accepted)
+{
+  if (!m_server || !m_incomingFileOffer || m_incomingFileOffer->id != id)
+    return;
+
+  if (!accepted) {
+    m_server->onFileTransferCancel(id.toStdString(), "cancelled by user");
+    reportFileTransferProgress(deskflow::filetransfer::Status::Cancelled, QStringLiteral("Cancelled"));
+    if (m_incomingFile)
+      m_incomingFile->cancel();
+    m_incomingFile.reset();
+    m_incomingFileOffer.reset();
+    return;
+  }
+
+  m_incomingFile = std::make_unique<deskflow::filetransfer::IncomingFile>();
+  QString error;
+  if (!m_incomingFile->begin(*m_incomingFileOffer, deskflow::filetransfer::defaultCacheRoot(), &error)) {
+    m_server->onFileTransferCancel(id.toStdString(), error.toStdString());
+    reportFileTransferProgress(deskflow::filetransfer::Status::Failed, error);
+    m_incomingFile.reset();
+    m_incomingFileOffer.reset();
+    return;
+  }
+
+  reportFileTransferProgress(deskflow::filetransfer::Status::Transferring);
+  m_server->onFileTransferAccept(id.toStdString());
+}
+
+void Client::fileTransferAccept(const std::string &id)
+{
+  if (!m_server || !m_localFileOffer || m_localFileOffer->id.toStdString() != id)
+    return;
+
+  m_outgoingFile = std::make_unique<deskflow::filetransfer::OutgoingFile>();
+  QString error;
+  if (!m_outgoingFile->open(*m_localFileOffer, &error)) {
+    m_server->onFileTransferCancel(id, error.toStdString());
+    m_outgoingFile.reset();
+    m_localFileOffer.reset();
+    return;
+  }
+
+  m_events->addEvent(Event(EventTypes::FileTransferSendNext, this));
+}
+
+void Client::sendNextFileChunk()
+{
+  if (!m_server || !m_outgoingFile || !m_localFileOffer)
+    return;
+
+  if (m_outgoingFile->atEnd()) {
+    const auto id = m_localFileOffer->id.toStdString();
+    m_server->onFileTransferEnd(id, m_outgoingFile->digest().toStdString());
+    m_outgoingFile.reset();
+    m_localFileOffer.reset();
+    return;
+  }
+
+  QString error;
+  const auto data = m_outgoingFile->read(64 * 1024, &error);
+  if (data.isEmpty() && !m_outgoingFile->atEnd()) {
+    if (error.isEmpty())
+      error = QStringLiteral("Unable to read the source file");
+    m_server->onFileTransferCancel(m_localFileOffer->id.toStdString(), error.toStdString());
+    m_outgoingFile.reset();
+    m_localFileOffer.reset();
+    return;
+  }
+
+  m_server->onFileTransferData(m_localFileOffer->id.toStdString(), data.toStdString());
+}
+
+void Client::fileTransferReady(const std::string &id)
+{
+  if (m_localFileOffer && m_outgoingFile && m_localFileOffer->id.toStdString() == id)
+    m_events->addEvent(Event(EventTypes::FileTransferSendNext, this));
+}
+
+void Client::fileTransferData(const std::string &id, const std::string &data)
+{
+  if (!m_server || !m_incomingFileOffer || m_incomingFileOffer->id.toStdString() != id || !m_incomingFile) {
+    if (m_server)
+      m_server->onFileTransferCancel(id, "transfer was not approved");
+    return;
+  }
+
+  QString error;
+  if (!m_incomingFile->append(QByteArray::fromStdString(data), &error)) {
+    m_server->onFileTransferCancel(id, error.toStdString());
+    reportFileTransferProgress(deskflow::filetransfer::Status::Failed, error);
+    m_incomingFile.reset();
+    m_incomingFileOffer.reset();
+    return;
+  }
+
+  if (m_incomingFile->received() % (1024 * 1024) == 0 ||
+      m_incomingFile->received() == m_incomingFileOffer->size)
+    reportFileTransferProgress(deskflow::filetransfer::Status::Transferring);
+  m_server->onFileTransferReady(id);
+}
+
+void Client::fileTransferEnd(const std::string &id, const std::string &digest)
+{
+  if (!m_server || !m_incomingFileOffer || m_incomingFileOffer->id.toStdString() != id || !m_incomingFile)
+    return;
+
+  reportFileTransferProgress(deskflow::filetransfer::Status::Verifying);
+  QString error;
+  if (!m_incomingFile->finish(QByteArray::fromStdString(digest), &error)) {
+    m_server->onFileTransferCancel(id, error.toStdString());
+    reportFileTransferProgress(deskflow::filetransfer::Status::Failed, error);
+    m_incomingFile.reset();
+    m_incomingFileOffer.reset();
+    return;
+  }
+
+  if (!m_screen->setFileClipboard(m_incomingFile->finalPath())) {
+    const auto clipboardError = QStringLiteral("Unable to publish the received file to the clipboard");
+    m_server->onFileTransferCancel(id, clipboardError.toStdString());
+    reportFileTransferProgress(deskflow::filetransfer::Status::Failed, clipboardError);
+    m_incomingFile.reset();
+    m_incomingFileOffer.reset();
+    return;
+  }
+
+  reportFileTransferProgress(deskflow::filetransfer::Status::Ready, QStringLiteral("Ready to paste"));
+  m_incomingFile.reset();
+  m_incomingFileOffer.reset();
+}
+
+void Client::fileTransferCancel(const std::string &id, const std::string &reason)
+{
+  const auto transferId = QString::fromStdString(id);
+  const bool isIncoming = m_incomingFileOffer && m_incomingFileOffer->id == transferId;
+  const bool isOutgoing = m_localFileOffer && m_localFileOffer->id == transferId;
+  if (!isIncoming && !isOutgoing)
+    return;
+
+  if (m_incomingFile)
+    m_incomingFile->cancel();
+  reportFileTransferProgress(
+      reason == "cancelled by user" ? deskflow::filetransfer::Status::Cancelled
+                                    : deskflow::filetransfer::Status::Failed,
+      QString::fromStdString(reason)
+  );
+  m_incomingFile.reset();
+  m_outgoingFile.reset();
+  if (isIncoming)
+    m_incomingFileOffer.reset();
+  if (isOutgoing)
+    m_localFileOffer.reset();
+}
+
+void Client::reportFileTransferProgress(deskflow::filetransfer::Status status, const QString &detail)
+{
+  const auto *offer = m_incomingFileOffer ? &*m_incomingFileOffer : (m_localFileOffer ? &*m_localFileOffer : nullptr);
+  if (!offer)
+    return;
+
+  deskflow::filetransfer::Progress progress;
+  progress.id = offer->id;
+  progress.name = offer->name;
+  progress.total = offer->size;
+  progress.received = m_incomingFile ? m_incomingFile->received() : 0;
+  progress.status = status;
+  progress.detail = detail;
+  ipcSendToClient("fileTransferProgress", QString::fromUtf8(progress.toIpc()));
 }
 
 void Client::handleSuspend()

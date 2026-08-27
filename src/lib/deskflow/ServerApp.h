@@ -61,6 +61,7 @@ public:
   int runInner(StartupFunc startup) override;
   int start() override;
   void startNode() override;
+  void handleFileTransferDecision(const QString &id, bool accepted) override;
 
   //
   // Regular functions

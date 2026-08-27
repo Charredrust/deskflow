@@ -125,6 +125,11 @@ int main(int argc, char **argv)
   QObject::connect(
       ipcServer, &deskflow::core::ipc::IpcServer::stopProcessRequested, coreApp, &App::quit, Qt::DirectConnection
   );
+  QObject::connect(
+      ipcServer, &deskflow::core::ipc::CoreIpcServer::fileTransferDecision, coreApp,
+      [coreApp](const QString &id, bool accepted) { coreApp->handleFileTransferDecision(id, accepted); },
+      Qt::QueuedConnection
+  );
   ipcServer->listen();
 
   QThread coreThread;

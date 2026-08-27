@@ -8,6 +8,7 @@
 #pragma once
 
 #include "deskflow/ClipboardTypes.h"
+#include "deskflow/FileTransfer.h"
 #include "deskflow/IScreen.h"
 #include "deskflow/KeyTypes.h"
 #include "deskflow/MouseTypes.h"
@@ -90,6 +91,9 @@ public:
   soon after an enter().
   */
   void setClipboard(ClipboardID, const IClipboard *);
+
+  std::optional<filetransfer::Offer> getFileClipboard() const;
+  bool setFileClipboard(const QString &path);
 
   //! Grab clipboard
   /*!

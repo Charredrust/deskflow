@@ -49,6 +49,12 @@ public:
   void onInfoChanged();
   bool onGrabClipboard(ClipboardID);
   void onClipboardChanged(ClipboardID, const IClipboard *);
+  void onFileTransferOffer(const std::string &wireOffer);
+  void onFileTransferAccept(const std::string &id);
+  void onFileTransferCancel(const std::string &id, const std::string &reason);
+  void onFileTransferData(const std::string &id, const std::string &data);
+  void onFileTransferEnd(const std::string &id, const std::string &digest);
+  void onFileTransferReady(const std::string &id);
 
   //@}
 

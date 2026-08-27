@@ -297,6 +297,45 @@ ServerProxy::ConnectionResult ServerProxy::parseMessage(const uint8_t *code)
     setClipboard();
   }
 
+  else if (memcmp(code, kMsgDFileClipboardOffer, 4) == 0) {
+    std::string offer;
+    ProtocolUtil::readf(m_stream, kMsgDFileClipboardOffer + 4, &offer);
+    m_client->fileTransferOffer(offer);
+  }
+
+  else if (memcmp(code, kMsgDFileClipboardAccept, 4) == 0) {
+    std::string id;
+    ProtocolUtil::readf(m_stream, kMsgDFileClipboardAccept + 4, &id);
+    m_client->fileTransferAccept(id);
+  }
+
+  else if (memcmp(code, kMsgDFileClipboardCancel, 4) == 0) {
+    std::string id;
+    std::string reason;
+    ProtocolUtil::readf(m_stream, kMsgDFileClipboardCancel + 4, &id, &reason);
+    m_client->fileTransferCancel(id, reason);
+  }
+
+  else if (memcmp(code, kMsgDFileClipboardData, 4) == 0) {
+    std::string id;
+    std::string data;
+    ProtocolUtil::readf(m_stream, kMsgDFileClipboardData + 4, &id, &data);
+    m_client->fileTransferData(id, data);
+  }
+
+  else if (memcmp(code, kMsgDFileClipboardEnd, 4) == 0) {
+    std::string id;
+    std::string digest;
+    ProtocolUtil::readf(m_stream, kMsgDFileClipboardEnd + 4, &id, &digest);
+    m_client->fileTransferEnd(id, digest);
+  }
+
+  else if (memcmp(code, kMsgDFileClipboardReady, 4) == 0) {
+    std::string id;
+    ProtocolUtil::readf(m_stream, kMsgDFileClipboardReady + 4, &id);
+    m_client->fileTransferReady(id);
+  }
+
   else if (memcmp(code, kMsgCResetOptions, 4) == 0) {
     resetOptions();
   }
@@ -378,6 +417,36 @@ void ServerProxy::onClipboardChanged(ClipboardID id, const IClipboard *clipboard
   LOG_DEBUG("sending clipboard %d seqnum=%d", id, m_seqNum);
 
   StreamChunker::sendClipboard(data, data.size(), id, m_seqNum, m_events, this);
+}
+
+void ServerProxy::onFileTransferOffer(const std::string &wireOffer)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileClipboardOffer, &wireOffer);
+}
+
+void ServerProxy::onFileTransferAccept(const std::string &id)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileClipboardAccept, &id);
+}
+
+void ServerProxy::onFileTransferCancel(const std::string &id, const std::string &reason)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileClipboardCancel, &id, &reason);
+}
+
+void ServerProxy::onFileTransferData(const std::string &id, const std::string &data)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileClipboardData, &id, &data);
+}
+
+void ServerProxy::onFileTransferEnd(const std::string &id, const std::string &digest)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileClipboardEnd, &id, &digest);
+}
+
+void ServerProxy::onFileTransferReady(const std::string &id)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileClipboardReady, &id);
 }
 
 void ServerProxy::flushCompressedMouse()

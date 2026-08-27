@@ -404,3 +404,9 @@ double ClientApp::retryTime() const
     return 120;
   return 300;
 }
+
+void ClientApp::handleFileTransferDecision(const QString &id, bool accepted)
+{
+  if (m_client != nullptr)
+    m_client->localFileTransferDecision(id, accepted);
+}

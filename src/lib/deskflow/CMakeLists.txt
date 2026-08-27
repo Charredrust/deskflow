@@ -41,6 +41,10 @@ add_library(${lib_name} STATIC ${PLATFORM_CODE}
   DeskflowException.cpp
   DeskflowException.h
   DisplayInvalidException.h
+  FileTransfer.cpp
+  FileTransfer.h
+  FileTransferStorage.cpp
+  FileTransferStorage.h
   IApp.h
   IClient.h
   IClipboard.cpp

@@ -20,6 +20,7 @@ public:
   explicit CoreIpcClient(QObject *parent = nullptr);
 
   void sendStop();
+  void sendFileTransferDecision(const QString &id, bool accepted);
 
 Q_SIGNALS:
   void commandReceived(const QString &command, const QString &args);

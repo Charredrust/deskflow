@@ -32,6 +32,9 @@ class QLocalServer;
 class DeskflowApplication;
 class LogDock;
 class StatusBar;
+namespace deskflow::gui {
+class FileTransferPopup;
+}
 
 namespace Ui {
 class MainWindow;
@@ -179,6 +182,7 @@ private:
   QStringList m_checkedClients;
   QStringList m_checkedServers;
   QSystemTrayIcon *m_trayIcon = nullptr;
+  deskflow::gui::FileTransferPopup *m_fileTransferPopup = nullptr;
   QLocalServer *m_guiDupeChecker = nullptr;
   deskflow::gui::ipc::DaemonIpcClient *m_daemonIpcClient = nullptr;
 

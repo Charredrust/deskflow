@@ -34,12 +34,14 @@
 #include "platform/OSXScreenSaver.h"
 
 #include <AppKit/NSEvent.h>
+#include <AppKit/NSPasteboard.h>
 #include <AvailabilityMacros.h>
 #include <IOKit/hidsystem/event_status_driver.h>
 #include <dispatch/dispatch.h>
 #include <libproc.h>
 #include <mach-o/dyld.h>
 #include <math.h>
+#include <QFileInfo>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -844,6 +846,61 @@ bool OSXScreen::setClipboard(ClipboardID, const IClipboard *src)
     Clipboard::copy(&m_pasteboard, src);
   }
   return true;
+}
+
+std::optional<deskflow::filetransfer::Offer> OSXScreen::getFileClipboard() const
+{
+  __block NSURL *fileURL = nil;
+  const auto readPasteboard = ^{
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    NSDictionary *options = @{NSPasteboardURLReadingFileURLsOnlyKey : @YES};
+    NSArray *urls = [pasteboard readObjectsForClasses:@[[NSURL class]] options:options];
+    if ([urls count] == 1)
+      fileURL = [[urls firstObject] retain];
+  };
+  if ([NSThread isMainThread])
+    readPasteboard();
+  else
+    dispatch_sync(dispatch_get_main_queue(), readPasteboard);
+
+  if (!fileURL || ![fileURL isFileURL]) {
+    [fileURL release];
+    return std::nullopt;
+  }
+  const auto filePath = QString::fromUtf8([[fileURL path] UTF8String]);
+  [fileURL release];
+  const QFileInfo info(filePath);
+  if (!info.isFile() || info.isSymLink())
+    return std::nullopt;
+
+  deskflow::filetransfer::Offer offer;
+  offer.name = deskflow::filetransfer::sanitizedFileName(info.fileName());
+  offer.size = static_cast<uint64_t>(info.size());
+  offer.localPath = info.absoluteFilePath();
+  if (offer.name.isEmpty() || offer.size > deskflow::filetransfer::kDefaultMaximumTransferSize)
+    return std::nullopt;
+  return offer;
+}
+
+bool OSXScreen::setFileClipboard(const QString &path)
+{
+  const QFileInfo info(path);
+  if (!info.isFile() || info.isSymLink())
+    return false;
+
+  const auto utf8Path = info.absoluteFilePath().toUtf8();
+  __block bool success = false;
+  const auto writePasteboard = ^{
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    [pasteboard clearContents];
+    NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:utf8Path.constData()]];
+    success = [pasteboard writeObjects:@[url]] == YES;
+  };
+  if ([NSThread isMainThread])
+    writePasteboard();
+  else
+    dispatch_sync(dispatch_get_main_queue(), writePasteboard);
+  return success;
 }
 
 void OSXScreen::checkClipboards()

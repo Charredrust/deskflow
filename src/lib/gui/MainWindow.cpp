@@ -28,6 +28,7 @@
 #include "gui/TlsUtility.h"
 #include "gui/core/CoreProcess.h"
 #include "gui/ipc/DaemonIpcClient.h"
+#include "gui/widgets/FileTransferPopup.h"
 #include "gui/widgets/LogDock.h"
 #include "net/FingerprintDatabase.h"
 #include "widgets/StatusBar.h"
@@ -61,6 +62,7 @@ MainWindow::MainWindow()
     : ui{std::make_unique<Ui::MainWindow>()},
       m_coreProcess(m_serverConfig),
       m_trayIcon{new QSystemTrayIcon(this)},
+      m_fileTransferPopup{new FileTransferPopup()},
       m_guiDupeChecker{new QLocalServer(this)},
       m_daemonIpcClient{new ipc::DaemonIpcClient(this)},
       m_logDock{new LogDock(this)},
@@ -172,6 +174,7 @@ MainWindow::~MainWindow()
 
   m_guiDupeChecker->close();
   m_coreProcess.cleanup();
+  delete m_fileTransferPopup;
 }
 
 void MainWindow::restoreWindow()
@@ -278,6 +281,17 @@ void MainWindow::connectSlots()
   connect(&m_coreProcess, &CoreProcess::retryIn, this, &MainWindow::updateTimeoutDelay);
   connect(&m_coreProcess, &CoreProcess::peerFingerprint, this, &MainWindow::handlePeerFingerprint);
   connect(&m_coreProcess, &CoreProcess::missingKeyboardLayouts, this, &MainWindow::handleMissingKeyboardLayouts);
+  connect(&m_coreProcess, &CoreProcess::fileTransferOffer, this, [this](const QString &encoded) {
+    if (const auto offer = deskflow::filetransfer::Offer::fromWire(encoded.toUtf8()); offer)
+      m_fileTransferPopup->showOffer(*offer);
+  });
+  connect(&m_coreProcess, &CoreProcess::fileTransferProgress, this, [this](const QString &encoded) {
+    if (const auto progress = deskflow::filetransfer::Progress::fromIpc(encoded.toUtf8()); progress)
+      m_fileTransferPopup->showProgress(*progress);
+  });
+  connect(m_fileTransferPopup, &FileTransferPopup::decision, this, [this](const QString &id, bool accepted) {
+    m_coreProcess.sendFileTransferDecision(id, accepted);
+  });
 
   if (Settings::value(Settings::Gui::AutoStartCore).toBool()) {
     connect(ui->btnToggleCore, &QPushButton::clicked, m_actionStopCore, &QAction::trigger, Qt::UniqueConnection);

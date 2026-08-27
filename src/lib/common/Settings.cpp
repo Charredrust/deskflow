@@ -213,6 +213,9 @@ QVariant Settings::defaultValue(const QString &key)
   if (key == Gui::UpdateCheckUrl)
     return kUrlUpdateCheck;
 
+  if (key == Gui::FileTransferPopupPosition)
+    return QStringLiteral("topRight");
+
   if (key == Server::ExternalConfigFile)
     return QStringLiteral("%1/%2-server.conf").arg(Settings::settingsPath(), kAppId);
 

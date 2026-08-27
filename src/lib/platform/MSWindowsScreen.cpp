@@ -29,6 +29,9 @@
 #include "platform/MSWindowsScreenSaver.h"
 
 #include <Shlobj.h>
+#include <Shellapi.h>
+#include <QFileInfo>
+#include <QDir>
 #include <algorithm>
 #include <comutil.h>
 #include <string.h>
@@ -331,6 +334,90 @@ bool MSWindowsScreen::setClipboard(ClipboardID, const IClipboard *src)
     dst.close();
     return true;
   }
+}
+
+std::optional<deskflow::filetransfer::Offer> MSWindowsScreen::getFileClipboard() const
+{
+  if (!IsClipboardFormatAvailable(CF_HDROP) || !OpenClipboard(m_window))
+    return std::nullopt;
+
+  std::optional<deskflow::filetransfer::Offer> result;
+  const auto handle = static_cast<HDROP>(GetClipboardData(CF_HDROP));
+  if (handle && DragQueryFileW(handle, 0xFFFFFFFF, nullptr, 0) == 1) {
+    const auto length = DragQueryFileW(handle, 0, nullptr, 0);
+    std::wstring path(length + 1, L'\0');
+    if (DragQueryFileW(handle, 0, path.data(), length + 1) == length) {
+      path.resize(length);
+      const QFileInfo info(QString::fromStdWString(path));
+      if (info.isFile() && !info.isSymLink()) {
+        deskflow::filetransfer::Offer offer;
+        offer.name = deskflow::filetransfer::sanitizedFileName(info.fileName());
+        offer.size = static_cast<uint64_t>(info.size());
+        offer.localPath = info.absoluteFilePath();
+        if (!offer.name.isEmpty() && offer.size <= deskflow::filetransfer::kDefaultMaximumTransferSize)
+          result = std::move(offer);
+      }
+    }
+  }
+  CloseClipboard();
+  return result;
+}
+
+bool MSWindowsScreen::setFileClipboard(const QString &path)
+{
+  const QFileInfo info(path);
+  if (!info.isFile() || info.isSymLink() || !OpenClipboard(m_window))
+    return false;
+
+  const auto nativePath = QDir::toNativeSeparators(info.absoluteFilePath()).toStdWString();
+  const SIZE_T bytes = sizeof(DROPFILES) + (nativePath.size() + 2) * sizeof(wchar_t);
+  HGLOBAL dropHandle = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, bytes);
+  if (!dropHandle) {
+    CloseClipboard();
+    return false;
+  }
+
+  auto *drop = static_cast<DROPFILES *>(GlobalLock(dropHandle));
+  if (!drop) {
+    GlobalFree(dropHandle);
+    CloseClipboard();
+    return false;
+  }
+  drop->pFiles = sizeof(DROPFILES);
+  drop->fWide = TRUE;
+  auto *names = reinterpret_cast<wchar_t *>(reinterpret_cast<BYTE *>(drop) + sizeof(DROPFILES));
+  memcpy(names, nativePath.c_str(), nativePath.size() * sizeof(wchar_t));
+  GlobalUnlock(dropHandle);
+
+  bool success = EmptyClipboard() != FALSE;
+  if (success) {
+    auto ownership = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, 1);
+    if (ownership && SetClipboardData(MSWindowsClipboard::getOwnershipFormat(), ownership) == nullptr)
+      GlobalFree(ownership);
+    if (SetClipboardData(CF_HDROP, dropHandle) == nullptr)
+      success = false;
+    else
+      dropHandle = nullptr; // Clipboard now owns the allocation.
+  }
+
+  if (success) {
+    const auto preferredDropEffect = RegisterClipboardFormat(CFSTR_PREFERREDDROPEFFECT);
+    HGLOBAL effectHandle = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, sizeof(DWORD));
+    if (effectHandle) {
+      auto *effect = static_cast<DWORD *>(GlobalLock(effectHandle));
+      if (effect) {
+        *effect = DROPEFFECT_COPY;
+        GlobalUnlock(effectHandle);
+      }
+      if (!effect || SetClipboardData(preferredDropEffect, effectHandle) == nullptr)
+        GlobalFree(effectHandle);
+    }
+  }
+
+  if (dropHandle)
+    GlobalFree(dropHandle);
+  CloseClipboard();
+  return success;
 }
 
 void MSWindowsScreen::checkClipboards()

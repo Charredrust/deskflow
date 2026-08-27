@@ -45,7 +45,7 @@ static const int16_t kProtocolMajorVersion = 1;
  * @note When incrementing the minor version, the Deskflow application version should also increment
  * @since Protocol version 1.0
  */
-static const int16_t kProtocolMinorVersion = 8;
+static const int16_t kProtocolMinorVersion = 9;
 
 /**
  * @brief Default TCP port for Deskflow connections
@@ -1027,6 +1027,14 @@ extern const char *const kMsgDSetOptions;
  * @deprecated File drag and drop is no longer implemented.
  */
 extern const char *const kMsgDFileTransfer;
+
+// File clipboard protocol (v1.9+). Payload strings use base64url where noted.
+extern const char *const kMsgDFileClipboardOffer;  // FCOF%s
+extern const char *const kMsgDFileClipboardAccept; // FCAC%s
+extern const char *const kMsgDFileClipboardCancel; // FCCN%s%s
+extern const char *const kMsgDFileClipboardData;   // FCDT%s%s
+extern const char *const kMsgDFileClipboardEnd;    // FCEN%s%s
+extern const char *const kMsgDFileClipboardReady;  // FCRD%s
 
 /**
  * @brief Drag and drop information

@@ -10,6 +10,7 @@
 
 #include "base/IEventQueue.h"
 #include "base/Log.h"
+#include "common/Settings.h"
 #include "deskflow/AppUtil.h"
 #include "deskflow/DeskflowException.h"
 #include "deskflow/IPlatformScreen.h"
@@ -18,11 +19,14 @@
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/Screen.h"
 #include "deskflow/StreamChunker.h"
+#include "deskflow/FileTransfer.h"
+#include "deskflow/FileTransferStorage.h"
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/TCPSocket.h"
 #include "server/ClientListener.h"
 #include "server/ClientProxy.h"
 #include "server/ClientProxyUnknown.h"
+#include "server/ClientProxy1_9.h"
 #include "server/PrimaryClient.h"
 
 #ifdef _WIN32
@@ -33,6 +37,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <QUuid>
 
 using namespace deskflow::server;
 
@@ -113,6 +118,9 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Scr
   m_events->addHandler(EventTypes::ServerLockCursorToScreen, m_inputFilter, [this](const auto &e) {
     handleLockCursorToScreenEvent(e);
   });
+  m_events->addHandler(EventTypes::FileTransferSendNext, this, [this](const auto &) {
+    sendNextPrimaryFileChunk();
+  });
   m_events->addHandler(EventTypes::PrimaryScreenFakeInputBegin, m_inputFilter, [this](const auto &) {
     m_primaryClient->fakeInputBegin();
   });
@@ -158,6 +166,7 @@ Server::~Server()
   m_events->removeHandler(PrimaryScreenFakeInputBegin, m_inputFilter);
   m_events->removeHandler(PrimaryScreenFakeInputEnd, m_inputFilter);
   m_events->removeHandler(Timer, this);
+  m_events->removeHandler(FileTransferSendNext, this);
   stopSwitch();
 
   try {
@@ -489,11 +498,241 @@ void Server::switchScreen(BaseClientProxy *dst, int32_t x, int32_t y, bool forSc
       }
     }
 
+    if (m_enableClipboard && m_active != m_primaryClient)
+      offerPrimaryFileToActive();
+
     auto *info = new Server::SwitchToScreenInfo(m_active->getName());
     m_events->addEvent(Event(EventTypes::ServerScreenSwitched, this, info));
   } else {
     m_active->mouseMove(x, y);
   }
+}
+
+void Server::offerPrimaryFileToActive()
+{
+  if (!Settings::value(Settings::Security::TlsEnabled).toBool())
+    return;
+  auto offer = m_primaryClient->getFileClipboard();
+  if (!offer)
+    return;
+  if (m_fileTransfer)
+    failFileTransfer(QStringLiteral("Replaced by a newer file clipboard offer"));
+  offer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  offer->sourceName = QString::fromStdString(m_primaryClient->getName());
+  m_fileTransfer.emplace();
+  m_fileTransfer->offer = *offer;
+  m_fileTransfer->source = m_primaryClient;
+  m_fileTransfer->target = m_active;
+  deliverFileOffer();
+}
+
+void Server::fileTransferOffer(BaseClientProxy *source, const std::string &wireOffer)
+{
+  auto offer = deskflow::filetransfer::Offer::fromWire(QByteArray::fromStdString(wireOffer));
+  if (!offer || source == m_active || !Settings::value(Settings::Security::TlsEnabled).toBool()) {
+    if (auto *proxy = dynamic_cast<ClientProxy1_9 *>(source))
+      proxy->sendFileCancel(offer ? offer->id.toStdString() : std::string(), "invalid offer");
+    return;
+  }
+  offer->sourceName = QString::fromStdString(source->getName());
+  if (m_fileTransfer)
+    failFileTransfer(QStringLiteral("Replaced by a newer file clipboard offer"));
+  m_fileTransfer.emplace();
+  m_fileTransfer->offer = *offer;
+  m_fileTransfer->source = source;
+  m_fileTransfer->target = m_active;
+  deliverFileOffer();
+}
+
+void Server::deliverFileOffer()
+{
+  if (!m_fileTransfer)
+    return;
+  if (m_fileTransfer->target == m_primaryClient) {
+    ipcSendToClient("fileTransferOffer", QString::fromUtf8(m_fileTransfer->offer.toWire()));
+    return;
+  }
+  if (auto *target = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->target)) {
+    target->sendFileOffer(m_fileTransfer->offer.toWire().toStdString());
+    return;
+  }
+  failFileTransfer(QStringLiteral("The destination does not support file clipboard transfer"));
+}
+
+void Server::localFileTransferDecision(const QString &id, bool accepted)
+{
+  if (!m_fileTransfer || m_fileTransfer->target != m_primaryClient || m_fileTransfer->offer.id != id)
+    return;
+  if (!accepted) {
+    fileTransferCancel(m_primaryClient, id.toStdString(), "cancelled by user");
+    return;
+  }
+
+  m_fileTransfer->incoming = std::make_unique<deskflow::filetransfer::IncomingFile>();
+  QString error;
+  if (!m_fileTransfer->incoming->begin(m_fileTransfer->offer, deskflow::filetransfer::defaultCacheRoot(), &error)) {
+    failFileTransfer(error);
+    return;
+  }
+  reportFileTransferProgress(deskflow::filetransfer::Status::Transferring);
+  if (auto *source = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->source))
+    source->sendFileAccept(id.toStdString());
+  else
+    failFileTransfer(QStringLiteral("The source does not support file clipboard transfer"));
+}
+
+void Server::fileTransferAccept(BaseClientProxy *target, const std::string &id)
+{
+  if (!m_fileTransfer || m_fileTransfer->target != target || m_fileTransfer->offer.id.toStdString() != id)
+    return;
+  if (m_fileTransfer->source == m_primaryClient) {
+    m_fileTransfer->outgoing = std::make_unique<deskflow::filetransfer::OutgoingFile>();
+    QString error;
+    if (!m_fileTransfer->outgoing->open(m_fileTransfer->offer, &error)) {
+      failFileTransfer(error);
+      return;
+    }
+    m_events->addEvent(Event(EventTypes::FileTransferSendNext, this));
+    return;
+  }
+  if (auto *source = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->source))
+    source->sendFileAccept(id);
+  else
+    failFileTransfer(QStringLiteral("The source does not support file clipboard transfer"));
+}
+
+void Server::sendNextPrimaryFileChunk()
+{
+  if (!m_fileTransfer || m_fileTransfer->source != m_primaryClient || !m_fileTransfer->outgoing)
+    return;
+  auto *target = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->target);
+  if (!target) {
+    failFileTransfer(QStringLiteral("The destination disconnected"));
+    return;
+  }
+  if (m_fileTransfer->outgoing->atEnd()) {
+    target->sendFileEnd(
+        m_fileTransfer->offer.id.toStdString(), m_fileTransfer->outgoing->digest().toStdString()
+    );
+    m_fileTransfer.reset();
+    return;
+  }
+  QString error;
+  const auto data = m_fileTransfer->outgoing->read(64 * 1024, &error);
+  if (data.isEmpty() && !m_fileTransfer->outgoing->atEnd()) {
+    failFileTransfer(error.isEmpty() ? QStringLiteral("Unable to read the source file") : error);
+    return;
+  }
+  if (!data.isEmpty())
+    target->sendFileData(m_fileTransfer->offer.id.toStdString(), data.toStdString());
+}
+
+void Server::fileTransferData(BaseClientProxy *source, const std::string &id, const std::string &data)
+{
+  if (!m_fileTransfer || m_fileTransfer->source != source || m_fileTransfer->offer.id.toStdString() != id)
+    return;
+  if (m_fileTransfer->target == m_primaryClient) {
+    if (!m_fileTransfer->incoming) {
+      failFileTransfer(QStringLiteral("File data arrived before approval"));
+      return;
+    }
+    QString error;
+    if (!m_fileTransfer->incoming->append(QByteArray::fromStdString(data), &error)) {
+      failFileTransfer(error);
+      return;
+    }
+    if (m_fileTransfer->incoming->received() % (1024 * 1024) == 0 ||
+        m_fileTransfer->incoming->received() == m_fileTransfer->offer.size)
+      reportFileTransferProgress(deskflow::filetransfer::Status::Transferring);
+    if (auto *sourceProxy = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->source))
+      sourceProxy->sendFileReady(id);
+  } else if (auto *target = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->target)) {
+    target->sendFileData(id, data);
+  } else {
+    failFileTransfer(QStringLiteral("The destination disconnected"));
+  }
+}
+
+void Server::fileTransferEnd(BaseClientProxy *source, const std::string &id, const std::string &digest)
+{
+  if (!m_fileTransfer || m_fileTransfer->source != source || m_fileTransfer->offer.id.toStdString() != id)
+    return;
+  if (m_fileTransfer->target != m_primaryClient) {
+    if (auto *target = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->target))
+      target->sendFileEnd(id, digest);
+    m_fileTransfer.reset();
+    return;
+  }
+
+  reportFileTransferProgress(deskflow::filetransfer::Status::Verifying);
+  QString error;
+  if (!m_fileTransfer->incoming ||
+      !m_fileTransfer->incoming->finish(QByteArray::fromStdString(digest), &error)) {
+    failFileTransfer(error.isEmpty() ? QStringLiteral("Unable to verify the received file") : error);
+    return;
+  }
+  if (!m_primaryClient->setFileClipboard(m_fileTransfer->incoming->finalPath())) {
+    failFileTransfer(QStringLiteral("Unable to publish the received file to the system clipboard"));
+    return;
+  }
+  reportFileTransferProgress(deskflow::filetransfer::Status::Ready);
+  m_fileTransfer.reset();
+}
+
+void Server::fileTransferReady(BaseClientProxy *target, const std::string &id)
+{
+  if (!m_fileTransfer || m_fileTransfer->target != target || m_fileTransfer->offer.id.toStdString() != id)
+    return;
+  if (m_fileTransfer->source == m_primaryClient) {
+    m_events->addEvent(Event(EventTypes::FileTransferSendNext, this));
+  } else if (auto *source = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->source)) {
+    source->sendFileReady(id);
+  }
+}
+
+void Server::fileTransferCancel(BaseClientProxy *client, const std::string &id, const std::string &reason)
+{
+  if (!m_fileTransfer || m_fileTransfer->offer.id.toStdString() != id ||
+      (client != m_fileTransfer->source && client != m_fileTransfer->target))
+    return;
+  auto *other = client == m_fileTransfer->source ? m_fileTransfer->target : m_fileTransfer->source;
+  if (auto *proxy = dynamic_cast<ClientProxy1_9 *>(other))
+    proxy->sendFileCancel(id, reason);
+  if (m_fileTransfer->target == m_primaryClient)
+    reportFileTransferProgress(
+        reason == "cancelled by user" ? deskflow::filetransfer::Status::Cancelled
+                                      : deskflow::filetransfer::Status::Failed,
+        QString::fromStdString(reason)
+    );
+  m_fileTransfer.reset();
+}
+
+void Server::failFileTransfer(const QString &reason)
+{
+  if (!m_fileTransfer)
+    return;
+  const auto id = m_fileTransfer->offer.id.toStdString();
+  for (auto *participant : {m_fileTransfer->source, m_fileTransfer->target}) {
+    if (auto *proxy = dynamic_cast<ClientProxy1_9 *>(participant))
+      proxy->sendFileCancel(id, reason.toStdString());
+  }
+  if (m_fileTransfer->target == m_primaryClient)
+    reportFileTransferProgress(deskflow::filetransfer::Status::Failed, reason);
+  m_fileTransfer.reset();
+}
+
+void Server::reportFileTransferProgress(deskflow::filetransfer::Status status, const QString &detail)
+{
+  if (!m_fileTransfer)
+    return;
+  deskflow::filetransfer::Progress progress;
+  progress.id = m_fileTransfer->offer.id;
+  progress.name = m_fileTransfer->offer.name;
+  progress.total = m_fileTransfer->offer.size;
+  progress.received = m_fileTransfer->incoming ? m_fileTransfer->incoming->received() : 0;
+  progress.status = status;
+  progress.detail = detail;
+  ipcSendToClient("fileTransferProgress", QString::fromUtf8(progress.toIpc()));
 }
 
 void Server::jumpToScreen(BaseClientProxy *newScreen)
@@ -1914,6 +2153,9 @@ bool Server::removeClient(BaseClientProxy *client)
   if (i == m_clientSet.end()) {
     return false;
   }
+
+  if (m_fileTransfer && (m_fileTransfer->source == client || m_fileTransfer->target == client))
+    fileTransferCancel(client, m_fileTransfer->offer.id.toStdString(), "peer disconnected");
 
   // remove event handlers
   m_events->removeHandler(ScreenShapeChanged, client->getEventTarget());

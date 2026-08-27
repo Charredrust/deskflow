@@ -9,3 +9,14 @@ https://github.com/deskflow/deskflow/releases
 
 Please report vulnerabilities on our issue tracker as bugs:
 https://github.com/deskflow/deskflow/issues
+
+## File Clipboard Transfers
+
+File clipboard transfers require TLS and reuse Deskflow's existing authenticated connection and configured TCP port;
+the feature does not add a listener or create firewall exceptions. The destination must approve an offer before any
+file content is sent. Received content is written through normal operating-system file APIs to a private staging
+directory, without antivirus exclusions, and is published to the native clipboard only after its declared size and
+SHA-256 digest have been verified.
+
+The first implementation accepts one regular file up to 5 GiB. Directories, symbolic links, multiple selections, and
+unsafe cross-platform filenames are rejected.

@@ -9,6 +9,7 @@
 #pragma once
 
 #include "deskflow/ClipboardTypes.h"
+#include "deskflow/FileTransfer.h"
 #include "deskflow/IKeyState.h"
 #include "deskflow/IPrimaryScreen.h"
 #include "deskflow/IScreen.h"
@@ -76,6 +77,19 @@ public:
   Set the contents of the system clipboard indicated by \c id.
   */
   virtual bool setClipboard(ClipboardID id, const IClipboard *) = 0;
+
+  //! Return a single regular file currently present on the native clipboard.
+  virtual std::optional<deskflow::filetransfer::Offer> getFileClipboard() const
+  {
+    return std::nullopt;
+  }
+
+  //! Publish a verified local file path using the platform's native file clipboard format.
+  virtual bool setFileClipboard(const QString &path)
+  {
+    Q_UNUSED(path)
+    return false;
+  }
 
   //! Check clipboard owner
   /*!
