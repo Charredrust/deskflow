@@ -37,6 +37,7 @@ jobs:
 
       - name: Commit translation updates
         run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git status --short
           git add translations/*.ts
           if git diff --cached --quiet; then
