@@ -7,7 +7,9 @@
 #include "deskflow/FileTransfer.h"
 #include "deskflow/FileTransferStorage.h"
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUuid>
@@ -21,7 +23,12 @@ private Q_SLOTS:
   void rejectsUnsafeNamesAndInvalidIds();
   void progressRoundTrip();
   void streamsAndVerifiesAFile();
+  void transfersAndVerifiesZeroByteFile();
   void rejectsDataBeyondDeclaredSize();
+  void rejectsDigestMismatchAndCleansUp();
+  void cancelRemovesStagingFiles();
+  void rejectsChangedSourceSizeBeforeTransfer();
+  void rejectsSourceGrowthDuringTransfer();
 };
 
 using namespace deskflow::filetransfer;
@@ -113,6 +120,31 @@ void FileTransferTests::streamsAndVerifiesAFile()
   QCOMPARE(received.readAll(), contents);
 }
 
+void FileTransferTests::transfersAndVerifiesZeroByteFile()
+{
+  QTemporaryDir temporaryDirectory;
+  QVERIFY(temporaryDirectory.isValid());
+  const auto sourcePath = temporaryDirectory.filePath(QStringLiteral("empty.bin"));
+  QFile source(sourcePath);
+  QVERIFY(source.open(QIODevice::WriteOnly));
+  source.close();
+
+  Offer offer;
+  offer.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  offer.name = QStringLiteral("received-empty.bin");
+  offer.size = 0;
+  offer.localPath = sourcePath;
+
+  QString error;
+  OutgoingFile outgoing;
+  IncomingFile incoming;
+  QVERIFY2(outgoing.open(offer, &error), qPrintable(error));
+  QVERIFY(outgoing.atEnd());
+  QVERIFY2(incoming.begin(offer, temporaryDirectory.filePath(QStringLiteral("cache")), &error), qPrintable(error));
+  QVERIFY2(incoming.finish(outgoing.digest(), &error), qPrintable(error));
+  QCOMPARE(QFileInfo(incoming.finalPath()).size(), 0);
+}
+
 void FileTransferTests::rejectsDataBeyondDeclaredSize()
 {
   QTemporaryDir temporaryDirectory;
@@ -125,6 +157,109 @@ void FileTransferTests::rejectsDataBeyondDeclaredSize()
   IncomingFile incoming;
   QVERIFY2(incoming.begin(offer, temporaryDirectory.path(), &error), qPrintable(error));
   QVERIFY(!incoming.append(QByteArray("four"), &error));
+  QVERIFY(!error.isEmpty());
+}
+
+void FileTransferTests::rejectsDigestMismatchAndCleansUp()
+{
+  QTemporaryDir temporaryDirectory;
+  QVERIFY(temporaryDirectory.isValid());
+  const auto cacheRoot = temporaryDirectory.filePath(QStringLiteral("cache"));
+
+  Offer offer;
+  offer.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  offer.name = QStringLiteral("digest.bin");
+  offer.size = 3;
+
+  QString error;
+  IncomingFile incoming;
+  QVERIFY2(incoming.begin(offer, cacheRoot, &error), qPrintable(error));
+  QVERIFY2(incoming.append(QByteArray("abc"), &error), qPrintable(error));
+  QVERIFY(!incoming.finish(QByteArray(32, '\0'), &error));
+  QVERIFY(!error.isEmpty());
+
+  const auto transferDir = QDir(cacheRoot).filePath(offer.id);
+  QVERIFY(QFileInfo::exists(transferDir));
+  incoming.cancel();
+  QVERIFY(!QFileInfo::exists(transferDir));
+}
+
+void FileTransferTests::cancelRemovesStagingFiles()
+{
+  QTemporaryDir temporaryDirectory;
+  QVERIFY(temporaryDirectory.isValid());
+  const auto cacheRoot = temporaryDirectory.filePath(QStringLiteral("cache"));
+
+  Offer offer;
+  offer.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  offer.name = QStringLiteral("cancel.bin");
+  offer.size = 3;
+
+  QString error;
+  IncomingFile incoming;
+  QVERIFY2(incoming.begin(offer, cacheRoot, &error), qPrintable(error));
+  QVERIFY2(incoming.append(QByteArray("abc"), &error), qPrintable(error));
+
+  const auto transferDir = QDir(cacheRoot).filePath(offer.id);
+  const auto partialPath = QDir(transferDir).filePath(offer.name + QStringLiteral(".deskflow-part"));
+  QVERIFY(QFileInfo::exists(partialPath));
+  incoming.cancel();
+  QVERIFY(!QFileInfo::exists(partialPath));
+  QVERIFY(!QFileInfo::exists(transferDir));
+}
+
+void FileTransferTests::rejectsChangedSourceSizeBeforeTransfer()
+{
+  QTemporaryDir temporaryDirectory;
+  QVERIFY(temporaryDirectory.isValid());
+  const auto sourcePath = temporaryDirectory.filePath(QStringLiteral("changed.bin"));
+  QFile source(sourcePath);
+  QVERIFY(source.open(QIODevice::WriteOnly));
+  QCOMPARE(source.write("abcd", 4), qint64(4));
+  source.close();
+
+  Offer offer;
+  offer.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  offer.name = QStringLiteral("changed.bin");
+  offer.size = 3;
+  offer.localPath = sourcePath;
+
+  QString error;
+  OutgoingFile outgoing;
+  QVERIFY(!outgoing.open(offer, &error));
+  QVERIFY(!error.isEmpty());
+}
+
+void FileTransferTests::rejectsSourceGrowthDuringTransfer()
+{
+  QTemporaryDir temporaryDirectory;
+  QVERIFY(temporaryDirectory.isValid());
+  const auto sourcePath = temporaryDirectory.filePath(QStringLiteral("growing.bin"));
+  QFile source(sourcePath);
+  QVERIFY(source.open(QIODevice::WriteOnly));
+  QCOMPARE(source.write("abc", 3), qint64(3));
+  source.close();
+
+  Offer offer;
+  offer.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  offer.name = QStringLiteral("growing.bin");
+  offer.size = 3;
+  offer.localPath = sourcePath;
+
+  QString error;
+  OutgoingFile outgoing;
+  QVERIFY2(outgoing.open(offer, &error), qPrintable(error));
+
+  QFile appended(sourcePath);
+  QVERIFY(appended.open(QIODevice::Append));
+  QCOMPARE(appended.write("d", 1), qint64(1));
+  appended.close();
+
+  QCOMPARE(outgoing.read(2, &error), QByteArray("ab"));
+  QCOMPARE(outgoing.read(2, &error), QByteArray("c"));
+  QVERIFY(!outgoing.atEnd());
+  error.clear();
+  QVERIFY(outgoing.read(2, &error).isEmpty());
   QVERIFY(!error.isEmpty());
 }
 

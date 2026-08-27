@@ -11,6 +11,8 @@
 #include <QStandardPaths>
 #include <QStorageInfo>
 
+#include <algorithm>
+
 namespace deskflow::filetransfer {
 
 bool OutgoingFile::open(const Offer &offer, QString *error)
@@ -44,7 +46,14 @@ QByteArray OutgoingFile::read(qint64 maximumBytes, QString *error)
 {
   if (!m_file.isOpen() || maximumBytes <= 0)
     return {};
-  auto data = m_file.read(maximumBytes);
+  if (m_read >= m_expectedSize) {
+    if (!m_file.atEnd() && error)
+      *error = QStringLiteral("The source file changed during transfer");
+    return {};
+  }
+
+  const auto remaining = static_cast<qint64>(m_expectedSize - m_read);
+  auto data = m_file.read(std::min(maximumBytes, remaining));
   if (data.isEmpty() && m_file.error() != QFileDevice::NoError) {
     if (error)
       *error = m_file.errorString();
