@@ -71,7 +71,7 @@ void FileTransferTests::progressRoundTrip()
   QCOMPARE(decoded->id, progress.id);
   QCOMPARE(decoded->received, progress.received);
   QCOMPARE(decoded->total, progress.total);
-  QCOMPARE(decoded->status, Status::Transferring);
+  QCOMPARE(static_cast<int>(decoded->status), static_cast<int>(Status::Transferring));
 }
 
 void FileTransferTests::streamsAndVerifiesAFile()
@@ -121,7 +121,7 @@ void FileTransferTests::rejectsDataBeyondDeclaredSize()
   QString error;
   IncomingFile incoming;
   QVERIFY2(incoming.begin(offer, temporaryDirectory.path(), &error), qPrintable(error));
-  QVERIFY(!incoming.append(QByteArrayLiteral("four"), &error));
+  QVERIFY(!incoming.append(QByteArray("four"), &error));
   QVERIFY(!error.isEmpty());
 }
 

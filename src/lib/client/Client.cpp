@@ -542,6 +542,13 @@ void Client::cleanupScreen()
     delete m_server;
     m_server = nullptr;
   }
+  if (m_incomingFile)
+    m_incomingFile->cancel();
+  m_incomingFile.reset();
+  m_outgoingFile.reset();
+  m_incomingFileOffer.reset();
+  m_localFileOffer.reset();
+  m_serverSupportsFileTransfer = false;
 }
 
 void Client::cleanupTimer()
