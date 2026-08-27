@@ -51,6 +51,9 @@ void FileTransferTests::rejectsUnsafeNamesAndInvalidIds()
   QVERIFY(!offer.isValid());
 
   offer.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  offer.name.clear();
+  QVERIFY(!offer.isValid());
+
   offer.name = QStringLiteral("../outside.zip");
   QVERIFY(!offer.isValid());
   QCOMPARE(sanitizedFileName(QStringLiteral("CON.txt")), QStringLiteral("_CON.txt"));
