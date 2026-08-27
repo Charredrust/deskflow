@@ -847,8 +847,7 @@ void Client::fileTransferData(const std::string &id, const std::string &data)
     return;
   }
 
-  if (m_incomingFile->received() % (1024 * 1024) == 0 ||
-      m_incomingFile->received() == m_incomingFileOffer->size)
+  if (m_incomingFile->received() % (1024 * 1024) == 0 || m_incomingFile->received() == m_incomingFileOffer->size)
     reportFileTransferProgress(deskflow::filetransfer::Status::Transferring);
   m_server->onFileTransferReady(id);
 }

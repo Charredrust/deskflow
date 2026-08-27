@@ -100,9 +100,7 @@ bool IncomingFile::begin(const Offer &offer, const QString &cacheRoot, QString *
       *error = QStringLiteral("The transfer staging folder is unsafe");
     return false;
   }
-  QFile::setPermissions(
-      transferDir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner
-  );
+  QFile::setPermissions(transferDir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
 
   const QStorageInfo storage(transferDir);
   if (storage.isValid() && storage.bytesAvailable() >= 0 &&

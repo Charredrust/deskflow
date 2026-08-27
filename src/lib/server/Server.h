@@ -13,9 +13,9 @@
 #include "common/NetworkProtocol.h"
 #include "deskflow/Clipboard.h"
 #include "deskflow/ClipboardTypes.h"
-#include "deskflow/KeyTypes.h"
 #include "deskflow/FileTransfer.h"
 #include "deskflow/FileTransferStorage.h"
+#include "deskflow/KeyTypes.h"
 #include "deskflow/MouseTypes.h"
 #include "server/Config.h"
 

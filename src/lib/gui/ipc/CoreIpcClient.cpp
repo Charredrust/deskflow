@@ -24,8 +24,8 @@ void CoreIpcClient::sendStop()
 
 void CoreIpcClient::sendFileTransferDecision(const QString &id, bool accepted)
 {
-  sendMessage(QStringLiteral("fileTransferDecision=%1,%2").arg(id, accepted ? QStringLiteral("accept")
-                                                                            : QStringLiteral("cancel")));
+  sendMessage(QStringLiteral("fileTransferDecision=%1,%2")
+                  .arg(id, accepted ? QStringLiteral("accept") : QStringLiteral("cancel")));
 }
 
 void CoreIpcClient::processCommand(const QString &command, const QStringList &parts)

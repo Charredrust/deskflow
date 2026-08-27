@@ -223,8 +223,7 @@ void SettingsDialog::updateText()
 
   const QStringList popupPositions = {tr("Top right"), tr("Top left"), tr("Bottom right"), tr("Bottom left")};
   const QStringList popupPositionValues = {
-      QStringLiteral("topRight"), QStringLiteral("topLeft"), QStringLiteral("bottomRight"),
-      QStringLiteral("bottomLeft")
+      QStringLiteral("topRight"), QStringLiteral("topLeft"), QStringLiteral("bottomRight"), QStringLiteral("bottomLeft")
   };
   for (int i = 0; i < popupPositions.size(); ++i) {
     if (ui->comboFileTransferPopupPosition->count() <= i)
@@ -455,8 +454,8 @@ bool SettingsDialog::isModified() const
       (ui->cbAutoUpdate->isChecked() != Settings::value(Settings::Gui::AutoUpdateCheck).toBool()) ||
       (ui->cbGuiDebug->isChecked() != Settings::value(Settings::Log::GuiDebug).toBool()) ||
       (ui->cbShowVersion->isChecked() != Settings::value(Settings::Gui::ShowVersionInTitle).toBool()) ||
-      (ui->comboFileTransferPopupPosition->currentData() !=
-       Settings::value(Settings::Gui::FileTransferPopupPosition)) ||
+      (ui->comboFileTransferPopupPosition->currentData() != Settings::value(Settings::Gui::FileTransferPopupPosition)
+      ) ||
       (ui->rbIconMono->isChecked() != Settings::value(Settings::Gui::SymbolicTrayIcon).toBool()) ||
       (ui->groupService->isChecked() != (processMode == Settings::ProcessMode::Service)) ||
       (ui->lineTlsCertPath->text() != Settings::value(Settings::Security::Certificate).toString()) ||
@@ -522,9 +521,9 @@ void SettingsDialog::resetToDefault()
   ui->cbAutoUpdate->setChecked(Settings::defaultValue(Settings::Gui::AutoUpdateCheck).toBool());
   ui->cbGuiDebug->setChecked(Settings::defaultValue(Settings::Log::GuiDebug).toBool());
   ui->cbShowVersion->setChecked(Settings::defaultValue(Settings::Gui::ShowVersionInTitle).toBool());
-  ui->comboFileTransferPopupPosition->setCurrentIndex(ui->comboFileTransferPopupPosition->findData(
-      Settings::defaultValue(Settings::Gui::FileTransferPopupPosition)
-  ));
+  ui->comboFileTransferPopupPosition->setCurrentIndex(
+      ui->comboFileTransferPopupPosition->findData(Settings::defaultValue(Settings::Gui::FileTransferPopupPosition))
+  );
   ui->cbRunEnterCommand->setChecked(Settings::defaultValue(Settings::Core::EnableEnterCommand).toBool());
   ui->cbRunExitCommand->setChecked(Settings::defaultValue(Settings::Core::EnableExitCommand).toBool());
   ui->lineCommandEnter->setText(Settings::defaultValue(Settings::Core::ScreenEnterCommand).toString());

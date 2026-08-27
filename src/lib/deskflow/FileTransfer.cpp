@@ -18,8 +18,9 @@ namespace {
 
 QByteArray encodeJson(const QJsonObject &object)
 {
-  return QJsonDocument(object).toJson(QJsonDocument::Compact).toBase64(QByteArray::Base64UrlEncoding |
-                                                                       QByteArray::OmitTrailingEquals);
+  return QJsonDocument(object)
+      .toJson(QJsonDocument::Compact)
+      .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals);
 }
 
 std::optional<QJsonObject> decodeJson(const QByteArray &encoded)
@@ -130,8 +131,7 @@ QString sanitizedFileName(const QString &name)
   if (result == QStringLiteral(".") || result == QStringLiteral(".."))
     result.clear();
   if (QRegularExpression(
-          QStringLiteral("^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\\..*)?$"),
-          QRegularExpression::CaseInsensitiveOption
+          QStringLiteral("^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\\..*)?$"), QRegularExpression::CaseInsensitiveOption
       )
           .match(result)
           .hasMatch())

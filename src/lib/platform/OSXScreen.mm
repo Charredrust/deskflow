@@ -37,11 +37,11 @@
 #include <AppKit/NSPasteboard.h>
 #include <AvailabilityMacros.h>
 #include <IOKit/hidsystem/event_status_driver.h>
+#include <QFileInfo>
 #include <dispatch/dispatch.h>
 #include <libproc.h>
 #include <mach-o/dyld.h>
 #include <math.h>
-#include <QFileInfo>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -854,7 +854,7 @@ std::optional<deskflow::filetransfer::Offer> OSXScreen::getFileClipboard() const
   const auto readPasteboard = ^{
     NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
     NSDictionary *options = @{NSPasteboardURLReadingFileURLsOnlyKey : @YES};
-    NSArray *urls = [pasteboard readObjectsForClasses:@[[NSURL class]] options:options];
+    NSArray *urls = [pasteboard readObjectsForClasses:@[ [NSURL class] ] options:options];
     if ([urls count] == 1)
       fileURL = [[urls firstObject] retain];
   };
@@ -894,7 +894,7 @@ bool OSXScreen::setFileClipboard(const QString &path)
     NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
     [pasteboard clearContents];
     NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:utf8Path.constData()]];
-    success = [pasteboard writeObjects:@[url]] == YES;
+    success = [pasteboard writeObjects:@[ url ]] == YES;
   };
   if ([NSThread isMainThread])
     writePasteboard();

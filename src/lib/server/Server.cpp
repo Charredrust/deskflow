@@ -13,31 +13,31 @@
 #include "common/Settings.h"
 #include "deskflow/AppUtil.h"
 #include "deskflow/DeskflowException.h"
+#include "deskflow/FileTransfer.h"
+#include "deskflow/FileTransferStorage.h"
 #include "deskflow/IPlatformScreen.h"
 #include "deskflow/OptionTypes.h"
 #include "deskflow/PacketStreamFilter.h"
 #include "deskflow/ProtocolTypes.h"
 #include "deskflow/Screen.h"
 #include "deskflow/StreamChunker.h"
-#include "deskflow/FileTransfer.h"
-#include "deskflow/FileTransferStorage.h"
 #include "deskflow/ipc/CoreIpc.h"
 #include "net/TCPSocket.h"
 #include "server/ClientListener.h"
 #include "server/ClientProxy.h"
-#include "server/ClientProxyUnknown.h"
 #include "server/ClientProxy1_9.h"
+#include "server/ClientProxyUnknown.h"
 #include "server/PrimaryClient.h"
 
 #ifdef _WIN32
 #include <algorithm>
 #include <array>
 #endif
+#include <QUuid>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-#include <QUuid>
 
 using namespace deskflow::server;
 
@@ -118,9 +118,7 @@ Server::Server(ServerConfig &config, PrimaryClient *primaryClient, deskflow::Scr
   m_events->addHandler(EventTypes::ServerLockCursorToScreen, m_inputFilter, [this](const auto &e) {
     handleLockCursorToScreenEvent(e);
   });
-  m_events->addHandler(EventTypes::FileTransferSendNext, this, [this](const auto &) {
-    sendNextPrimaryFileChunk();
-  });
+  m_events->addHandler(EventTypes::FileTransferSendNext, this, [this](const auto &) { sendNextPrimaryFileChunk(); });
   m_events->addHandler(EventTypes::PrimaryScreenFakeInputBegin, m_inputFilter, [this](const auto &) {
     m_primaryClient->fakeInputBegin();
   });
@@ -611,9 +609,7 @@ void Server::sendNextPrimaryFileChunk()
     return;
   }
   if (m_fileTransfer->outgoing->atEnd()) {
-    target->sendFileEnd(
-        m_fileTransfer->offer.id.toStdString(), m_fileTransfer->outgoing->digest().toStdString()
-    );
+    target->sendFileEnd(m_fileTransfer->offer.id.toStdString(), m_fileTransfer->outgoing->digest().toStdString());
     m_fileTransfer.reset();
     return;
   }
@@ -666,8 +662,7 @@ void Server::fileTransferEnd(BaseClientProxy *source, const std::string &id, con
 
   reportFileTransferProgress(deskflow::filetransfer::Status::Verifying);
   QString error;
-  if (!m_fileTransfer->incoming ||
-      !m_fileTransfer->incoming->finish(QByteArray::fromStdString(digest), &error)) {
+  if (!m_fileTransfer->incoming || !m_fileTransfer->incoming->finish(QByteArray::fromStdString(digest), &error)) {
     failFileTransfer(error.isEmpty() ? QStringLiteral("Unable to verify the received file") : error);
     return;
   }

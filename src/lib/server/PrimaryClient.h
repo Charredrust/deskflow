@@ -7,8 +7,8 @@
 
 #pragma once
 
-#include "server/BaseClientProxy.h"
 #include "deskflow/FileTransfer.h"
+#include "server/BaseClientProxy.h"
 
 namespace deskflow {
 class Screen;

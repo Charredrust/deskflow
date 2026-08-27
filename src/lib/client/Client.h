@@ -13,9 +13,9 @@
 #include "base/Event.h"
 #include "base/EventTypes.h"
 #include "common/Enums.h"
-#include "deskflow/IClipboard.h"
 #include "deskflow/FileTransfer.h"
 #include "deskflow/FileTransferStorage.h"
+#include "deskflow/IClipboard.h"
 #include "net/NetworkAddress.h"
 
 #include <climits>

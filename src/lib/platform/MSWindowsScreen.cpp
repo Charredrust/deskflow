@@ -28,10 +28,10 @@
 #include "platform/MSWindowsKeyState.h"
 #include "platform/MSWindowsScreenSaver.h"
 
-#include <Shlobj.h>
-#include <Shellapi.h>
-#include <QFileInfo>
 #include <QDir>
+#include <QFileInfo>
+#include <Shellapi.h>
+#include <Shlobj.h>
 #include <algorithm>
 #include <comutil.h>
 #include <string.h>

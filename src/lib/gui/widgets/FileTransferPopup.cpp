@@ -82,9 +82,7 @@ void FileTransferPopup::showOffer(const filetransfer::Offer &offer)
   m_hideTimer->stop();
   m_offer = offer;
   m_title->setText(tr("File detected"));
-  m_detail->setText(
-      tr("%1 — %2\nFrom: %3").arg(offer.name, formattedSize(offer.size), offer.sourceName)
-  );
+  m_detail->setText(tr("%1 — %2\nFrom: %3").arg(offer.name, formattedSize(offer.size), offer.sourceName));
   setOfferedState();
   adjustSize();
   positionOnCurrentScreen();
