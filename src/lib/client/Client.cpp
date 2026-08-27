@@ -654,8 +654,7 @@ void Client::handleClipboardGrabbed(const Event &event)
 
   const auto *info = static_cast<const IScreen::ClipboardInfo *>(event.getData());
 
-  if (info->m_id == kClipboardClipboard && m_serverSupportsFileTransfer && m_localFileOffer &&
-      !m_outgoingFile) {
+  if (info->m_id == kClipboardClipboard && m_serverSupportsFileTransfer && m_localFileOffer && !m_outgoingFile) {
     m_server->onFileTransferCancel(m_localFileOffer->id.toStdString(), "source clipboard changed");
     m_localFileOffer.reset();
   }
