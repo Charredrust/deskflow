@@ -48,6 +48,10 @@ bool ClientProxy1_9::parseMessage(const uint8_t *code)
     if (!ProtocolUtil::readf(getStream(), kMsgDFileClipboardReady + 4, &first))
       return false;
     getServer()->fileTransferReady(this, first);
+  } else if (memcmp(code, kMsgDFileClipboardComplete, 4) == 0) {
+    if (!ProtocolUtil::readf(getStream(), kMsgDFileClipboardComplete + 4, &first))
+      return false;
+    getServer()->fileTransferComplete(this, first);
   } else {
     return ClientProxy1_8::parseMessage(code);
   }
@@ -82,4 +86,9 @@ void ClientProxy1_9::sendFileEnd(const std::string &id, const std::string &diges
 void ClientProxy1_9::sendFileReady(const std::string &id) const
 {
   ProtocolUtil::writef(getStream(), kMsgDFileClipboardReady, &id);
+}
+
+void ClientProxy1_9::sendFileComplete(const std::string &id) const
+{
+  ProtocolUtil::writef(getStream(), kMsgDFileClipboardComplete, &id);
 }

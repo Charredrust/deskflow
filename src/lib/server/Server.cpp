@@ -621,7 +621,8 @@ void Server::sendNextPrimaryFileChunk()
   }
   if (m_fileTransfer->outgoing->atEnd()) {
     target->sendFileEnd(m_fileTransfer->offer.id.toStdString(), m_fileTransfer->outgoing->digest().toStdString());
-    m_fileTransfer.reset();
+    m_fileTransfer->outgoing.reset();
+    m_fileTransfer->awaitingCompletion = true;
     return;
   }
   QString error;
@@ -636,7 +637,8 @@ void Server::sendNextPrimaryFileChunk()
 
 void Server::fileTransferData(BaseClientProxy *source, const std::string &id, const std::string &data)
 {
-  if (!m_fileTransfer || m_fileTransfer->source != source || m_fileTransfer->offer.id.toStdString() != id)
+  if (!m_fileTransfer || m_fileTransfer->source != source || m_fileTransfer->offer.id.toStdString() != id ||
+      m_fileTransfer->awaitingCompletion)
     return;
   if (m_fileTransfer->target == m_primaryClient) {
     if (!m_fileTransfer->incoming) {
@@ -662,12 +664,13 @@ void Server::fileTransferData(BaseClientProxy *source, const std::string &id, co
 
 void Server::fileTransferEnd(BaseClientProxy *source, const std::string &id, const std::string &digest)
 {
-  if (!m_fileTransfer || m_fileTransfer->source != source || m_fileTransfer->offer.id.toStdString() != id)
+  if (!m_fileTransfer || m_fileTransfer->source != source || m_fileTransfer->offer.id.toStdString() != id ||
+      !m_fileTransfer->accepted || m_fileTransfer->awaitingCompletion)
     return;
+  m_fileTransfer->awaitingCompletion = true;
   if (m_fileTransfer->target != m_primaryClient) {
     if (auto *target = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->target))
       target->sendFileEnd(id, digest);
-    m_fileTransfer.reset();
     return;
   }
 
@@ -682,18 +685,30 @@ void Server::fileTransferEnd(BaseClientProxy *source, const std::string &id, con
     return;
   }
   reportFileTransferProgress(deskflow::filetransfer::Status::Ready);
-  m_fileTransfer.reset();
+  fileTransferComplete(m_primaryClient, id);
 }
 
 void Server::fileTransferReady(BaseClientProxy *target, const std::string &id)
 {
-  if (!m_fileTransfer || m_fileTransfer->target != target || m_fileTransfer->offer.id.toStdString() != id)
+  if (!m_fileTransfer || m_fileTransfer->target != target || m_fileTransfer->offer.id.toStdString() != id ||
+      m_fileTransfer->awaitingCompletion)
     return;
   if (m_fileTransfer->source == m_primaryClient) {
     m_events->addEvent(Event(EventTypes::FileTransferSendNext, this));
   } else if (auto *source = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->source)) {
     source->sendFileReady(id);
   }
+}
+
+void Server::fileTransferComplete(BaseClientProxy *target, const std::string &id)
+{
+  if (!m_fileTransfer || m_fileTransfer->target != target || m_fileTransfer->offer.id.toStdString() != id ||
+      !m_fileTransfer->awaitingCompletion)
+    return;
+
+  if (auto *source = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->source))
+    source->sendFileComplete(id);
+  m_fileTransfer.reset();
 }
 
 void Server::fileTransferCancel(BaseClientProxy *client, const std::string &id, const std::string &reason)

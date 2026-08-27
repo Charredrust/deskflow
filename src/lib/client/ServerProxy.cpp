@@ -336,6 +336,12 @@ ServerProxy::ConnectionResult ServerProxy::parseMessage(const uint8_t *code)
     m_client->fileTransferReady(id);
   }
 
+  else if (memcmp(code, kMsgDFileClipboardComplete, 4) == 0) {
+    std::string id;
+    ProtocolUtil::readf(m_stream, kMsgDFileClipboardComplete + 4, &id);
+    m_client->fileTransferComplete(id);
+  }
+
   else if (memcmp(code, kMsgCResetOptions, 4) == 0) {
     resetOptions();
   }
@@ -447,6 +453,11 @@ void ServerProxy::onFileTransferEnd(const std::string &id, const std::string &di
 void ServerProxy::onFileTransferReady(const std::string &id)
 {
   ProtocolUtil::writef(m_stream, kMsgDFileClipboardReady, &id);
+}
+
+void ServerProxy::onFileTransferComplete(const std::string &id)
+{
+  ProtocolUtil::writef(m_stream, kMsgDFileClipboardComplete, &id);
 }
 
 void ServerProxy::flushCompressedMouse()

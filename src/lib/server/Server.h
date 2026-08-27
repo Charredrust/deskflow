@@ -209,6 +209,7 @@ public:
   void fileTransferData(BaseClientProxy *source, const std::string &id, const std::string &data);
   void fileTransferEnd(BaseClientProxy *source, const std::string &id, const std::string &digest);
   void fileTransferReady(BaseClientProxy *target, const std::string &id);
+  void fileTransferComplete(BaseClientProxy *target, const std::string &id);
   void localFileTransferDecision(const QString &id, bool accepted);
 
   //@}
@@ -443,6 +444,7 @@ private:
     std::unique_ptr<deskflow::filetransfer::OutgoingFile> outgoing;
     std::unique_ptr<deskflow::filetransfer::IncomingFile> incoming;
     bool accepted = false;
+    bool awaitingCompletion = false;
   };
   std::optional<FileTransferSession> m_fileTransfer;
 

@@ -202,6 +202,7 @@ public:
   void fileTransferData(const std::string &id, const std::string &data);
   void fileTransferEnd(const std::string &id, const std::string &digest);
   void fileTransferReady(const std::string &id);
+  void fileTransferComplete(const std::string &id);
   void localFileTransferDecision(const QString &id, bool accepted);
 
 private:
@@ -265,4 +266,5 @@ private:
   std::optional<deskflow::filetransfer::Offer> m_incomingFileOffer;
   std::unique_ptr<deskflow::filetransfer::OutgoingFile> m_outgoingFile;
   std::unique_ptr<deskflow::filetransfer::IncomingFile> m_incomingFile;
+  bool m_outgoingFileAwaitingCompletion = false;
 };

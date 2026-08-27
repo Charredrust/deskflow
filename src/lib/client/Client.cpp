@@ -250,15 +250,18 @@ bool Client::leave()
     }
   }
 
-  if (m_enableClipboard && m_serverSupportsFileTransfer && m_server != nullptr && !m_outgoingFile) {
+  if (m_enableClipboard && m_serverSupportsFileTransfer && m_server != nullptr && !m_outgoingFile &&
+      !m_outgoingFileAwaitingCompletion) {
     auto offer = m_screen->getFileClipboard();
     if (m_localFileOffer) {
       m_server->onFileTransferCancel(m_localFileOffer->id.toStdString(), "replaced by a newer file clipboard offer");
+      m_outgoingFileAwaitingCompletion = false;
       m_localFileOffer.reset();
     }
     if (offer) {
       offer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
       offer->sourceName = QString::fromStdString(m_name);
+      m_outgoingFileAwaitingCompletion = false;
       m_localFileOffer = std::move(offer);
       m_server->onFileTransferOffer(m_localFileOffer->toWire().toStdString());
     }
@@ -654,8 +657,10 @@ void Client::handleClipboardGrabbed(const Event &event)
 
   const auto *info = static_cast<const IScreen::ClipboardInfo *>(event.getData());
 
-  if (info->m_id == kClipboardClipboard && m_serverSupportsFileTransfer && m_localFileOffer && !m_outgoingFile) {
+  if (info->m_id == kClipboardClipboard && m_serverSupportsFileTransfer && m_localFileOffer && !m_outgoingFile &&
+      !m_outgoingFileAwaitingCompletion) {
     m_server->onFileTransferCancel(m_localFileOffer->id.toStdString(), "source clipboard changed");
+    m_outgoingFileAwaitingCompletion = false;
     m_localFileOffer.reset();
   }
 
@@ -784,9 +789,11 @@ void Client::localFileTransferDecision(const QString &id, bool accepted)
 
 void Client::fileTransferAccept(const std::string &id)
 {
-  if (!m_server || !m_localFileOffer || m_localFileOffer->id.toStdString() != id)
+  if (!m_server || !m_localFileOffer || m_localFileOffer->id.toStdString() != id || m_outgoingFile ||
+      m_outgoingFileAwaitingCompletion)
     return;
 
+  m_outgoingFileAwaitingCompletion = false;
   m_outgoingFile = std::make_unique<deskflow::filetransfer::OutgoingFile>();
   QString error;
   if (!m_outgoingFile->open(*m_localFileOffer, &error)) {
@@ -808,7 +815,7 @@ void Client::sendNextFileChunk()
     const auto id = m_localFileOffer->id.toStdString();
     m_server->onFileTransferEnd(id, m_outgoingFile->digest().toStdString());
     m_outgoingFile.reset();
-    m_localFileOffer.reset();
+    m_outgoingFileAwaitingCompletion = true;
     return;
   }
 
@@ -830,6 +837,16 @@ void Client::fileTransferReady(const std::string &id)
 {
   if (m_localFileOffer && m_outgoingFile && m_localFileOffer->id.toStdString() == id)
     m_events->addEvent(Event(EventTypes::FileTransferSendNext, this));
+}
+
+void Client::fileTransferComplete(const std::string &id)
+{
+  if (!m_localFileOffer || m_localFileOffer->id.toStdString() != id || !m_outgoingFileAwaitingCompletion)
+    return;
+
+  m_outgoingFile.reset();
+  m_outgoingFileAwaitingCompletion = false;
+  m_localFileOffer.reset();
 }
 
 void Client::fileTransferData(const std::string &id, const std::string &data)
@@ -879,6 +896,7 @@ void Client::fileTransferEnd(const std::string &id, const std::string &digest)
   }
 
   reportFileTransferProgress(deskflow::filetransfer::Status::Ready, QStringLiteral("Ready to paste"));
+  m_server->onFileTransferComplete(id);
   m_incomingFile.reset();
   m_incomingFileOffer.reset();
 }
@@ -902,8 +920,10 @@ void Client::fileTransferCancel(const std::string &id, const std::string &reason
   m_outgoingFile.reset();
   if (isIncoming)
     m_incomingFileOffer.reset();
-  if (isOutgoing)
+  if (isOutgoing) {
+    m_outgoingFileAwaitingCompletion = false;
     m_localFileOffer.reset();
+  }
 }
 
 void Client::reportFileTransferProgress(deskflow::filetransfer::Status status, const QString &detail)

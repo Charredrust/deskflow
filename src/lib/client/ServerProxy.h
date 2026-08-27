@@ -55,6 +55,7 @@ public:
   void onFileTransferData(const std::string &id, const std::string &data);
   void onFileTransferEnd(const std::string &id, const std::string &digest);
   void onFileTransferReady(const std::string &id);
+  void onFileTransferComplete(const std::string &id);
 
   //@}
 

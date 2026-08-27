@@ -22,4 +22,5 @@ public:
   void sendFileData(const std::string &id, const std::string &data) const;
   void sendFileEnd(const std::string &id, const std::string &digest) const;
   void sendFileReady(const std::string &id) const;
+  void sendFileComplete(const std::string &id) const;
 };

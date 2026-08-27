@@ -1029,12 +1029,13 @@ extern const char *const kMsgDSetOptions;
 extern const char *const kMsgDFileTransfer;
 
 // File clipboard protocol (v1.9+). Payload strings use base64url where noted.
-extern const char *const kMsgDFileClipboardOffer;  // FCOF%s
-extern const char *const kMsgDFileClipboardAccept; // FCAC%s
-extern const char *const kMsgDFileClipboardCancel; // FCCN%s%s
-extern const char *const kMsgDFileClipboardData;   // FCDT%s%s
-extern const char *const kMsgDFileClipboardEnd;    // FCEN%s%s
-extern const char *const kMsgDFileClipboardReady;  // FCRD%s
+extern const char *const kMsgDFileClipboardOffer;    // FCOF%s
+extern const char *const kMsgDFileClipboardAccept;   // FCAC%s
+extern const char *const kMsgDFileClipboardCancel;   // FCCN%s%s
+extern const char *const kMsgDFileClipboardData;     // FCDT%s%s
+extern const char *const kMsgDFileClipboardEnd;      // FCEN%s%s
+extern const char *const kMsgDFileClipboardReady;    // FCRD%s
+extern const char *const kMsgDFileClipboardComplete; // FCOK%s
 
 /**
  * @brief Drag and drop information

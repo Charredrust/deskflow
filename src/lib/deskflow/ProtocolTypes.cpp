@@ -45,6 +45,7 @@ const char *const kMsgDFileClipboardCancel = "FCCN%s%s";
 const char *const kMsgDFileClipboardData = "FCDT%s%s";
 const char *const kMsgDFileClipboardEnd = "FCEN%s%s";
 const char *const kMsgDFileClipboardReady = "FCRD%s";
+const char *const kMsgDFileClipboardComplete = "FCOK%s";
 const char *const kMsgDDragInfo = "DDRG%2i%s";
 const char *const kMsgDSecureInputNotification = "SECN%s";
 const char *const kMsgDLanguageSynchronisation = "LSYN%s";
