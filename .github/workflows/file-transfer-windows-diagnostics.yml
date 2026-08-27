@@ -1,3 +1,4 @@
+# Temporary workflow: remove after Windows CI is green.
 name: File Transfer Windows Diagnostics
 
 on:
