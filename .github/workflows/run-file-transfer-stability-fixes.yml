@@ -1,0 +1,40 @@
+name: Run File Transfer Stability Fixes
+
+on:
+  push:
+    branches: [feature/file-clipboard]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feature/file-clipboard
+
+      - name: Execute embedded fix script
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          helper = Path('.github/workflows/apply-file-transfer-stability-fixes.yml')
+          lines = helper.read_text().splitlines()
+          start = lines.index("          python3 <<'PY'") + 1
+          end = lines.index('          PY', start)
+          code = '\n'.join(line[10:] if line.startswith('          ') else line for line in lines[start:end]) + '\n'
+          exec(compile(code, str(helper), 'exec'))
+          PY
+          rm .github/workflows/run-file-transfer-stability-fixes.yml
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "Charredrust"
+          git config user.email "charles@rustalis.com"
+          git add -A
+          git commit -m "fix(file-transfer): stabilize transfer sessions"
+          git push origin HEAD:feature/file-clipboard
