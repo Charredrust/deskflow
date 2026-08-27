@@ -154,6 +154,12 @@ This table lists all protocol messages in alphabetical order. For a typical sequ
 | [**DCLP**](@ref kMsgDClipboard) | @ref kMsgDClipboard | Data | Both | Clipboard data | [MsgSize](#constraint-protocol-max-message-length) | 1.0+ |
 | [**DDRG**](@ref kMsgDDragInfo) | @ref kMsgDDragInfo | Data | Server→Client | Drag file info | [MsgSize](#constraint-protocol-max-message-length), [ListSize](#constraint-max-list) | 1.5+ |
 | [**DFTR**](@ref kMsgDFileTransfer) | @ref kMsgDFileTransfer | Data | Both | File transfer data | [MsgSize](#constraint-protocol-max-message-length) | 1.5+ |
+| [**FCOF**](@ref kMsgDFileClipboardOffer) | @ref kMsgDFileClipboardOffer | Data | Both | File clipboard offer | [MsgSize](#constraint-protocol-max-message-length) | 1.9+ |
+| [**FCAC**](@ref kMsgDFileClipboardAccept) | @ref kMsgDFileClipboardAccept | Data | Both | Accept a file clipboard offer | [MsgSize](#constraint-protocol-max-message-length) | 1.9+ |
+| [**FCCN**](@ref kMsgDFileClipboardCancel) | @ref kMsgDFileClipboardCancel | Data | Both | Cancel or fail a file clipboard transfer | [MsgSize](#constraint-protocol-max-message-length) | 1.9+ |
+| [**FCDT**](@ref kMsgDFileClipboardData) | @ref kMsgDFileClipboardData | Data | Both | Bounded file data chunk | [MsgSize](#constraint-protocol-max-message-length) | 1.9+ |
+| [**FCEN**](@ref kMsgDFileClipboardEnd) | @ref kMsgDFileClipboardEnd | Data | Both | End transfer with SHA-256 digest | [MsgSize](#constraint-protocol-max-message-length) | 1.9+ |
+| [**FCRD**](@ref kMsgDFileClipboardReady) | @ref kMsgDFileClipboardReady | Data | Both | Receiver ready for the next chunk | [MsgSize](#constraint-protocol-max-message-length) | 1.9+ |
 | [**DINF**](@ref kMsgDInfo) | @ref kMsgDInfo | Data | Client→Server | Screen information | [MsgSize](#constraint-protocol-max-message-length) | 1.0+ |
 | [**DKDL**](@ref kMsgDKeyDownLang) | @ref kMsgDKeyDownLang | Data | Server→Client | Key down with language | [MsgSize](#constraint-protocol-max-message-length), [KeyMap](#constraint-keymap) | 1.8+ |
 | [**DKDN**](@ref kMsgDKeyDown) | @ref kMsgDKeyDown | Data | Server→Client | Key down | [MsgSize](#constraint-protocol-max-message-length), [KeyMap](#constraint-keymap) | 1.1+ |
@@ -290,6 +296,7 @@ A modifier (modifier mask) represents the state of modifier keys (like Shift, Co
 | **1.6** | Jan 2014 | Synergy | Clipboard streaming | 1.6+ |
 | **1.7** | Nov 2021 | Synergy | Secure input notifications | 1.7+ |
 | **1.8** | Jun 2025 | Synergy | Language synchronization | 1.8+ |
+| **1.9** | Aug 2026 | Deskflow | Approved, verified file clipboard transfer | 1.9+ |
 
 ### Version Migration Guide
 
@@ -492,10 +499,10 @@ For platform-specific implementation details, refer to:
   - Data transfer (@ref kMsgDClipboard - text, images, HTML)
   - Streaming for large data (v1.6+)
 
-- **File Transfer** (v1.5+)
-  - Drag-and-drop initiation
-  - Chunked file transfer
-  - Progress tracking
+- **File Clipboard Transfer** (v1.9+)
+  - Explicit destination approval before any file data is sent
+  - Backpressured 64 KiB chunks over the existing connection
+  - Declared-size enforcement and SHA-256 verification before native clipboard publication
 
 - **Security Features**
   - TLS/SSL encryption (v1.4+)

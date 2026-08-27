@@ -48,6 +48,7 @@ public:
   deskflow::Screen *createScreen() override;
   int mainLoop() override;
   void startNode() override;
+  void handleFileTransferDecision(const QString &id, bool accepted) override;
 
   //
   // Regular functions

@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "deskflow/FileTransfer.h"
 #include "server/BaseClientProxy.h"
 
 namespace deskflow {
@@ -105,6 +106,8 @@ public:
   // IScreen overrides
   void *getEventTarget() const override;
   bool getClipboard(ClipboardID id, IClipboard *) const override;
+  std::optional<deskflow::filetransfer::Offer> getFileClipboard() const;
+  bool setFileClipboard(const QString &path);
   void getShape(int32_t &x, int32_t &y, int32_t &width, int32_t &height) const override;
   void getCursorPos(int32_t &x, int32_t &y) const override;
 

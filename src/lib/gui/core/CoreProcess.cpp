@@ -606,7 +606,20 @@ void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString
     Q_EMIT peerFingerprint(args);
   } else if (command == "missingKeyboardLayouts") {
     Q_EMIT missingKeyboardLayouts(args);
+  } else if (command == "fileTransferOffer") {
+    Q_EMIT fileTransferOffer(args);
+  } else if (command == "fileTransferProgress") {
+    Q_EMIT fileTransferProgress(args);
   }
+}
+
+void CoreProcess::sendFileTransferDecision(const QString &id, bool accepted)
+{
+  if (!m_coreIpcClient) {
+    qWarning("cannot send file transfer decision: core IPC is not connected");
+    return;
+  }
+  m_coreIpcClient->sendFileTransferDecision(id, accepted);
 }
 
 bool CoreProcess::checkSecureSocket(const QString &line)

@@ -601,3 +601,9 @@ void ServerApp::startNode()
     bye(s_exitFailed);
   }
 }
+
+void ServerApp::handleFileTransferDecision(const QString &id, bool accepted)
+{
+  if (m_server != nullptr)
+    m_server->localFileTransferDecision(id, accepted);
+}

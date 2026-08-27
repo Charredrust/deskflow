@@ -13,10 +13,14 @@
 #include "base/Event.h"
 #include "base/EventTypes.h"
 #include "common/Enums.h"
+#include "deskflow/FileTransfer.h"
+#include "deskflow/FileTransferStorage.h"
 #include "deskflow/IClipboard.h"
 #include "net/NetworkAddress.h"
 
 #include <climits>
+#include <memory>
+#include <optional>
 #include <string>
 
 class Event;
@@ -190,6 +194,17 @@ public:
   void setOptions(const OptionsList &options) override;
   std::string getName() const override;
 
+  // File clipboard messages received through ServerProxy and decisions from
+  // the local GUI. Kept public so both integration points can dispatch them.
+  void fileTransferOffer(const std::string &wireOffer);
+  void fileTransferAccept(const std::string &id);
+  void fileTransferCancel(const std::string &id, const std::string &reason);
+  void fileTransferData(const std::string &id, const std::string &data);
+  void fileTransferEnd(const std::string &id, const std::string &digest);
+  void fileTransferReady(const std::string &id);
+  void fileTransferComplete(const std::string &id);
+  void localFileTransferDecision(const QString &id, bool accepted);
+
 private:
   void saveRelativeRestorePosition();
   void sendClipboard(ClipboardID);
@@ -218,8 +233,9 @@ private:
   void handleResume();
   void sendClipboardThread(void *);
   void bindNetworkInterface(IDataSocket *socket) const;
+  void sendNextFileChunk();
+  void reportFileTransferProgress(deskflow::filetransfer::Status status, const QString &detail = {});
 
-private:
   std::string m_name;
   NetworkAddress m_serverAddress;
   ISocketFactory *m_socketFactory = nullptr;
@@ -245,4 +261,10 @@ private:
   size_t m_maximumClipboardReceiveSize = 0;
   size_t m_maximumClipboardSize = INT_MAX;
   size_t m_resolvedAddressesCount = 0;
+  bool m_serverSupportsFileTransfer = false;
+  std::optional<deskflow::filetransfer::Offer> m_localFileOffer;
+  std::optional<deskflow::filetransfer::Offer> m_incomingFileOffer;
+  std::unique_ptr<deskflow::filetransfer::OutgoingFile> m_outgoingFile;
+  std::unique_ptr<deskflow::filetransfer::IncomingFile> m_incomingFile;
+  bool m_outgoingFileAwaitingCompletion = false;
 };

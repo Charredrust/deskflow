@@ -24,6 +24,9 @@ public:
 
   static CoreIpcServer &instance();
 
+Q_SIGNALS:
+  void fileTransferDecision(const QString &id, bool accepted);
+
 private:
   void processCommand(QLocalSocket *clientSocket, const QString &command, const QStringList &parts) override;
 };

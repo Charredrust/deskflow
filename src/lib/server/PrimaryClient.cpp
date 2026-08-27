@@ -79,6 +79,16 @@ bool PrimaryClient::getClipboard(ClipboardID id, IClipboard *clipboard) const
   return m_screen->getClipboard(id, clipboard);
 }
 
+std::optional<deskflow::filetransfer::Offer> PrimaryClient::getFileClipboard() const
+{
+  return m_screen->getFileClipboard();
+}
+
+bool PrimaryClient::setFileClipboard(const QString &path)
+{
+  return m_screen->setFileClipboard(path);
+}
+
 void PrimaryClient::getShape(int32_t &x, int32_t &y, int32_t &width, int32_t &height) const
 {
   m_screen->getShape(x, y, width, height);

@@ -158,6 +158,9 @@ enum class EventTypes : uint32_t
   ServerAppForceReconnect,
   ServerAppResetServer,
 
+  /// Continue a bounded file-transfer send without monopolising the event loop.
+  FileTransferSendNext,
+
   /// This event is sent when key is down. Event data is a pointer to KeyInfo (count == 1)
   KeyStateKeyDown,
   /// This event is sent when key is up. Event data is a pointer to KeyInfo (count == 1)

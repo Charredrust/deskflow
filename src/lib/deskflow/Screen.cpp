@@ -209,6 +209,16 @@ void Screen::setClipboard(ClipboardID id, const IClipboard *clipboard)
   m_screen->setClipboard(id, clipboard);
 }
 
+std::optional<filetransfer::Offer> Screen::getFileClipboard() const
+{
+  return m_screen->getFileClipboard();
+}
+
+bool Screen::setFileClipboard(const QString &path)
+{
+  return m_screen->setFileClipboard(path);
+}
+
 void Screen::grabClipboard(ClipboardID id)
 {
   m_screen->setClipboard(id, nullptr);

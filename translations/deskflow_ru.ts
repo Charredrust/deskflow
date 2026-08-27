@@ -1190,6 +1190,22 @@ Enabling this setting will disable the server config GUI.</source>
         <translation>Подробный вывод отладки</translation>
     </message>
     <message>
+        <source>Top right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Top left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bottom right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bottom left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Automatic</source>
         <translation>Автоматически</translation>
     </message>
@@ -1252,6 +1268,10 @@ Enabling this setting will disable the server config GUI.</source>
     <message>
         <source>Remove all settings</source>
         <translation type="unfinished">Удалить все настройки</translation>
+    </message>
+    <message>
+        <source>File transfer popup</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1353,6 +1373,62 @@ Enabling this setting will disable the server config GUI.</source>
     <message>
         <source>Encryption Disabled</source>
         <translation>Шифрование отключено</translation>
+    </message>
+</context>
+<context>
+    <name>deskflow::gui::FileTransferPopup</name>
+    <message>
+        <source>Transfer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preparing transfer…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File detected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 — %2
+From: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transferring %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Verifying %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Checking file integrity before enabling Paste.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 is ready</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paste it normally with Ctrl/Cmd+V.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transfer failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished">Закрывать</translation>
     </message>
 </context>
 <context>

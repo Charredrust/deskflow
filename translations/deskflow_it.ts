@@ -1168,6 +1168,22 @@ L&apos;abilitazione di questa impostazione disabiliterà l&apos;interfaccia graf
         <translation>Output di debug dettagliato</translation>
     </message>
     <message>
+        <source>Top right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Top left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bottom right</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bottom left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>TLS Certificate Regenerated</source>
         <translation>Certificato TLS rigenerato</translation>
     </message>
@@ -1254,6 +1270,10 @@ L&apos;abilitazione di questa impostazione disabiliterà l&apos;interfaccia graf
     <message>
         <source>Remove all settings</source>
         <translation type="unfinished">Rimuovi tutte le impostazioni</translation>
+    </message>
+    <message>
+        <source>File transfer popup</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1354,6 +1374,62 @@ L&apos;abilitazione di questa impostazione disabiliterà l&apos;interfaccia graf
     <message>
         <source>Encryption Disabled</source>
         <translation>Crittografia disabilitata</translation>
+    </message>
+</context>
+<context>
+    <name>deskflow::gui::FileTransferPopup</name>
+    <message>
+        <source>Transfer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Preparing transfer…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File detected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 — %2
+From: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transferring %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Verifying %1…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Checking file integrity before enabling Paste.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 is ready</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Paste it normally with Ctrl/Cmd+V.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Transfer failed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished">Vicino</translation>
     </message>
 </context>
 <context>

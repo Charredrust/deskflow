@@ -112,6 +112,8 @@ public:
   bool canLeave() override;
   void leave() override;
   bool setClipboard(ClipboardID, const IClipboard *) override;
+  std::optional<deskflow::filetransfer::Offer> getFileClipboard() const override;
+  bool setFileClipboard(const QString &path) override;
   void checkClipboards() override;
   void openScreensaver(bool notify) override;
   void closeScreensaver() override;

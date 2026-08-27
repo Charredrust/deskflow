@@ -57,6 +57,9 @@ public:
   virtual void parseArgs() = 0;
   virtual void loadConfig() = 0;
   virtual bool loadConfig(const QString &filename) = 0;
+  virtual void handleFileTransferDecision(const QString &, bool)
+  {
+  }
 
   void setByeFunc(void (*bye)(int)) override
   {
