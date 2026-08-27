@@ -37,18 +37,18 @@ jobs:
         uses: ./.github/actions/get-version
 
       - name: Configure
-        shell: bash
+        shell: pwsh
         run: |
-          set -o pipefail
-          ${{ env.CMAKE_CONFIGURE }} -G Ninja ${{ steps.get-deps.outputs.vcpkg-cmake-config }} -DPACKAGE_VERSION_LABEL="${{ env.DESKFLOW_PACKAGE_VERSION }}" 2>&1 | tee windows-configure.log
+          ${{ env.CMAKE_CONFIGURE }} -G Ninja ${{ steps.get-deps.outputs.vcpkg-cmake-config }} -DPACKAGE_VERSION_LABEL="${{ env.DESKFLOW_PACKAGE_VERSION }}" 2>&1 | Tee-Object -FilePath windows-configure.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build and capture diagnostics
         id: build
-        shell: bash
+        shell: pwsh
         continue-on-error: true
         run: |
-          set -o pipefail
-          cmake --build build --config Release -j8 --target package 2>&1 | tee windows-build.log
+          cmake --build build --config Release -j8 --target package 2>&1 | Tee-Object -FilePath windows-build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload diagnostics
         if: always()
@@ -61,5 +61,5 @@ jobs:
 
       - name: Preserve failure status
         if: steps.build.outcome == 'failure'
-        shell: bash
+        shell: pwsh
         run: exit 1
