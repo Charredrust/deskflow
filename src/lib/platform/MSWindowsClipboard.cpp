@@ -71,14 +71,21 @@ bool MSWindowsClipboard::empty()
     return false;
   }
 
-  // mark clipboard as being owned by deskflow
+  return markOwnedByDeskflow();
+}
+
+bool MSWindowsClipboard::markOwnedByDeskflow()
+{
   HGLOBAL data = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, 1);
-  if (nullptr == SetClipboardData(getOwnershipFormat(), data)) {
-    LOG_WARN("failed to set clipboard data");
+  if (data == nullptr) {
+    LOG_WARN("failed to allocate clipboard ownership marker");
+    return false;
+  }
+  if (SetClipboardData(getOwnershipFormat(), data) == nullptr) {
+    LOG_WARN("failed to set clipboard ownership marker");
     GlobalFree(data);
     return false;
   }
-
   return true;
 }
 

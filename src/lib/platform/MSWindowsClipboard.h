@@ -45,6 +45,9 @@ public:
   //! Test if clipboard is owned by deskflow
   static bool isOwnedByDeskflow();
 
+  //! Mark the currently-open clipboard as owned by deskflow
+  static bool markOwnedByDeskflow();
+
   // IClipboard overrides
   bool empty() override;
   void add(Format, const std::string &data) override;

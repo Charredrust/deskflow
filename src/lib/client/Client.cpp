@@ -250,11 +250,16 @@ bool Client::leave()
     }
   }
 
-  if (m_enableClipboard && m_serverSupportsFileTransfer && m_server != nullptr) {
-    m_localFileOffer = m_screen->getFileClipboard();
+  if (m_enableClipboard && m_serverSupportsFileTransfer && m_server != nullptr && !m_outgoingFile) {
+    auto offer = m_screen->getFileClipboard();
     if (m_localFileOffer) {
-      m_localFileOffer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-      m_localFileOffer->sourceName = QString::fromStdString(m_name);
+      m_server->onFileTransferCancel(m_localFileOffer->id.toStdString(), "replaced by a newer file clipboard offer");
+      m_localFileOffer.reset();
+    }
+    if (offer) {
+      offer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+      offer->sourceName = QString::fromStdString(m_name);
+      m_localFileOffer = std::move(offer);
       m_server->onFileTransferOffer(m_localFileOffer->toWire().toStdString());
     }
   }
@@ -649,12 +654,10 @@ void Client::handleClipboardGrabbed(const Event &event)
 
   const auto *info = static_cast<const IScreen::ClipboardInfo *>(event.getData());
 
-  if (info->m_id == kClipboardClipboard && m_serverSupportsFileTransfer) {
-    m_localFileOffer = m_screen->getFileClipboard();
-    if (m_localFileOffer) {
-      m_localFileOffer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-      m_localFileOffer->sourceName = QString::fromStdString(m_name);
-    }
+  if (info->m_id == kClipboardClipboard && m_serverSupportsFileTransfer && m_localFileOffer &&
+      !m_outgoingFile) {
+    m_server->onFileTransferCancel(m_localFileOffer->id.toStdString(), "source clipboard changed");
+    m_localFileOffer.reset();
   }
 
   // grab ownership

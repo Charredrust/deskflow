@@ -513,8 +513,11 @@ void Server::offerPrimaryFileToActive()
   auto offer = m_primaryClient->getFileClipboard();
   if (!offer)
     return;
-  if (m_fileTransfer)
+  if (m_fileTransfer) {
+    if (m_fileTransfer->accepted)
+      return;
     failFileTransfer(QStringLiteral("Replaced by a newer file clipboard offer"));
+  }
   offer->id = QUuid::createUuid().toString(QUuid::WithoutBraces);
   offer->sourceName = QString::fromStdString(m_primaryClient->getName());
   m_fileTransfer.emplace();
@@ -533,8 +536,14 @@ void Server::fileTransferOffer(BaseClientProxy *source, const std::string &wireO
     return;
   }
   offer->sourceName = QString::fromStdString(source->getName());
-  if (m_fileTransfer)
+  if (m_fileTransfer) {
+    if (m_fileTransfer->accepted) {
+      if (auto *proxy = dynamic_cast<ClientProxy1_9 *>(source))
+        proxy->sendFileCancel(offer->id.toStdString(), "another file transfer is already in progress");
+      return;
+    }
     failFileTransfer(QStringLiteral("Replaced by a newer file clipboard offer"));
+  }
   m_fileTransfer.emplace();
   m_fileTransfer->offer = *offer;
   m_fileTransfer->source = source;
@@ -572,6 +581,7 @@ void Server::localFileTransferDecision(const QString &id, bool accepted)
     failFileTransfer(error);
     return;
   }
+  m_fileTransfer->accepted = true;
   reportFileTransferProgress(deskflow::filetransfer::Status::Transferring);
   if (auto *source = dynamic_cast<ClientProxy1_9 *>(m_fileTransfer->source))
     source->sendFileAccept(id.toStdString());
@@ -583,6 +593,7 @@ void Server::fileTransferAccept(BaseClientProxy *target, const std::string &id)
 {
   if (!m_fileTransfer || m_fileTransfer->target != target || m_fileTransfer->offer.id.toStdString() != id)
     return;
+  m_fileTransfer->accepted = true;
   if (m_fileTransfer->source == m_primaryClient) {
     m_fileTransfer->outgoing = std::make_unique<deskflow::filetransfer::OutgoingFile>();
     QString error;

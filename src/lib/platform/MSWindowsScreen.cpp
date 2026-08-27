@@ -338,7 +338,7 @@ bool MSWindowsScreen::setClipboard(ClipboardID, const IClipboard *src)
 
 std::optional<deskflow::filetransfer::Offer> MSWindowsScreen::getFileClipboard() const
 {
-  if (!IsClipboardFormatAvailable(CF_HDROP) || !OpenClipboard(m_window))
+  if (MSWindowsClipboard::isOwnedByDeskflow() || !IsClipboardFormatAvailable(CF_HDROP) || !OpenClipboard(m_window))
     return std::nullopt;
 
   std::optional<deskflow::filetransfer::Offer> result;
@@ -390,10 +390,9 @@ bool MSWindowsScreen::setFileClipboard(const QString &path)
   GlobalUnlock(dropHandle);
 
   bool success = EmptyClipboard() != FALSE;
+  if (success)
+    success = MSWindowsClipboard::markOwnedByDeskflow();
   if (success) {
-    auto ownership = GlobalAlloc(GMEM_MOVEABLE | GMEM_DDESHARE, 1);
-    if (ownership && SetClipboardData(MSWindowsClipboard::getOwnershipFormat(), ownership) == nullptr)
-      GlobalFree(ownership);
     if (SetClipboardData(CF_HDROP, dropHandle) == nullptr)
       success = false;
     else

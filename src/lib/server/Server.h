@@ -442,6 +442,7 @@ private:
     BaseClientProxy *target = nullptr;
     std::unique_ptr<deskflow::filetransfer::OutgoingFile> outgoing;
     std::unique_ptr<deskflow::filetransfer::IncomingFile> incoming;
+    bool accepted = false;
   };
   std::optional<FileTransferSession> m_fileTransfer;
 

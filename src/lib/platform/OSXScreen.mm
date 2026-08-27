@@ -853,6 +853,8 @@ std::optional<deskflow::filetransfer::Offer> OSXScreen::getFileClipboard() const
   __block NSURL *fileURL = nil;
   const auto readPasteboard = ^{
     NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+    if ([pasteboard availableTypeFromArray:@[ @"org.deskflow.file-transfer" ]] != nil)
+      return;
     NSDictionary *options = @{NSPasteboardURLReadingFileURLsOnlyKey : @YES};
     NSArray *urls = [pasteboard readObjectsForClasses:@[ [NSURL class] ] options:options];
     if ([urls count] == 1)
@@ -895,6 +897,8 @@ bool OSXScreen::setFileClipboard(const QString &path)
     [pasteboard clearContents];
     NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:utf8Path.constData()]];
     success = [pasteboard writeObjects:@[ url ]] == YES;
+    if (success)
+      success = [pasteboard setString:@"1" forType:@"org.deskflow.file-transfer"] == YES;
   };
   if ([NSThread isMainThread])
     writePasteboard();
